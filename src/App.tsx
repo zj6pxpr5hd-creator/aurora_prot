@@ -21,7 +21,9 @@ function App() {
   const [dailyBreakdownError, setDailyBreakdownError] = useState("");
   const [memoriesError, setMemoriesError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-
+  const [upComingEvents, setUpComingEvents] = useState<Array<{type: "event" | "task" | "note" | "idea"; title: string; content: string; date: string | null; time: string | null}>>([]);
+  const [upComingEventsError, setUpComingEventsError] = useState("");
+  const [isUpComingEventsLoading, setUpComingEventsLoading] = useState(true);
 
   const createMemory = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -96,6 +98,31 @@ function App() {
       setIsDailyBreakdownLoading(false);
     }
   };
+
+  useEffect(() => {
+    const fetchDueEvents = async () => {
+      try {
+        const response = await fetch("http://localhost:3000/memory/upcoming");
+
+        if (!response.ok) {
+          throw new Error(`HTTP error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        setUpComingEvents(data.upcoming);
+      } catch (error) {
+        console.error("Error fetching due events:", error);
+        setUpComingEventsError("Could not load upcoming events");
+      }
+      setUpComingEventsLoading(false);
+    };
+
+    fetchDueEvents();
+
+    const interval = setInterval(fetchDueEvents, 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -188,6 +215,52 @@ function App() {
             <p className="daily-breakdown-empty">Nothing planned for today.</p>
           )}
         </aside>
+
+
+        <aside className="upcoming-events" aria-labelledby="upcoming-events-title">
+          <div className="upcoming-events-heading">
+            <div>
+              <p className="eyebrow">Upcoming</p>
+              <h2 id="upcoming-events-title">Upcoming Events</h2>
+            </div>
+          </div>
+
+          {upComingEventsError ? (
+            <div className="section-error" role="alert">
+              <p>{upComingEventsError}</p>
+            </div>
+          ) : isUpComingEventsLoading ? (
+            <ul className="upcoming-events-list upcoming-events-skeleton" aria-label="Loading upcoming events">
+              <li className="upcoming-events-skeleton-item">
+                <span />
+                <span />
+                <span />
+              </li>
+              <li className="upcoming-events-skeleton-item">
+                <span />
+                <span />
+                <span />
+              </li>
+            </ul>
+          ) : upComingEvents.length > 0 ? (
+            <ul className="upcoming-events-list">
+              {upComingEvents.map((memory, index) => (
+                <li className="upcoming-events-item" key={`${memory.type}-${memory.title}-${index}`}>
+                  <strong>{memory.title}</strong>
+                  <div className="upcoming-events-meta">
+                    <span>{memory.time ?? 'No time'}</span>
+                    <span>{memory.type}</span>
+                  </div>
+                  <p>{memory.content}</p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="upcoming-events-empty">Nothing to do right now.</p>
+          )}
+        </aside>
+
+
 
         <div className="main-content">
           <section className="conversation" aria-live="polite">

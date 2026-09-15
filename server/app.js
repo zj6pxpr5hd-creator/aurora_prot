@@ -150,7 +150,7 @@ app.get('/memory/today', async (req, res) => {
   try{
     const today = new Date().toISOString().split("T")[0];
     const memories = db
-    .prepare('SELECT * FROM memories WHERE date = ? ORDER BY created_at DESC')
+    .prepare('SELECT * FROM memories WHERE date = ? ORDER BY created_at ASC')
     .all(today);
 
     res.json({ memories });
@@ -160,6 +160,33 @@ app.get('/memory/today', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' })
   }
 })
+
+app.get('/memory/upcoming', async (req, res) => {
+  console.log('Recieved request at /memory/upcoming');
+
+  try{
+    
+    const upcoming = db
+          .prepare(`
+            SELECT *
+                FROM memories
+                WHERE type IN ('event', 'task')
+                  AND datetime(date || ' ' || time) 
+                      BETWEEN datetime('now', 'localtime') 
+                      AND datetime('now', '+1 hour', 'localtime')
+                ORDER BY date ASC, time ASC
+          `)
+          .all();
+    
+    res.json({ upcoming });
+
+  }catch(error){
+    console.error('Error fetching upcoming memories: ', error);
+    res.status(500).json({ error: 'internal server error' });
+  }
+});
+
+
 
 
 app.listen(port, () => {

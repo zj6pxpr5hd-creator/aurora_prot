@@ -15,6 +15,8 @@
 	--aurora-heading: Georgia, 'Times New Roman', serif;
 	--layout-gap: 32px;
 	--left-rail-width: 250px;
+    --right-rail-width: 250px;
+
 	font: 16px/1.45 var(--aurora-sans);
 	color-scheme: light dark;
 	font-synthesis: none;
@@ -127,12 +129,12 @@ p {
 	min-height: 0;
 	flex: 1;
 	display: grid;
-	grid-template-columns: var(--left-rail-width) minmax(0, 1fr);
-	grid-template-areas: "left-rail main";
+	grid-template-columns: var(--left-rail-width) minmax(0, 1fr) var(--right-rail-width);
+	grid-template-areas: "left-rail main right-rail";
 	gap: var(--layout-gap);
 }
 
-.daily-breakdown {
+.daily-breakdown{
 	grid-area: left-rail;
 	padding: 20px;
     margin-top: 20px;
@@ -142,12 +144,19 @@ p {
 	box-shadow: 0 8px 24px var(--aurora-shadow);
 }
 
-@media (min-width: 1000px) {
-	.daily-breakdown {
-		position: sticky;
-		top: 24px;
-	}
+.upcoming-events{
+	grid-area: right-rail;
+	padding: 20px;
+    margin-top: 20px;
+	border: 1px solid var(--aurora-line);
+	border-radius: 16px;
+	background: var(--aurora-surface);
+	box-shadow: 0 8px 24px var(--aurora-shadow);
+    top: 24px;
 }
+
+
+
 
 .daily-breakdown-heading {
 	display: flex;
@@ -207,6 +216,71 @@ p {
 }
 
 .daily-breakdown-empty {
+	margin: 18px 0 0;
+	color: var(--aurora-muted);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+
+.upcoming-events-heading {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid var(--aurora-line);
+}
+
+.upcoming-events-heading h2 {
+	margin: 2px 0 0;
+	color: var(--aurora-ink);
+	font-size: 20px;
+	font-weight: 600;
+}
+
+.upcoming-events-heading time {
+	color: var(--aurora-muted);
+	font-size: 12px;
+}
+
+.upcoming-events-list {
+	display: grid;
+	gap: 16px;
+	margin: 0;
+	padding: 18px 0 0;
+	list-style: none;
+}
+
+.upcoming-events-item {
+	padding-left: 14px;
+	border-left: 2px solid var(--aurora-accent);
+}
+
+.upcoming-events-item strong {
+	display: block;
+	color: var(--aurora-ink);
+	font-size: 14px;
+	line-height: 1.35;
+}
+
+.upcoming-events-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 5px;
+	color: var(--aurora-muted);
+	font-size: 11px;
+	text-transform: capitalize;
+}
+
+.upcoming-events-item p {
+	margin: 5px 0 0;
+	color: var(--aurora-muted);
+	font-size: 12px;
+	line-height: 1.45;
+}
+
+.upcoming-events-empty {
 	margin: 18px 0 0;
 	color: var(--aurora-muted);
 	font-size: 13px;
