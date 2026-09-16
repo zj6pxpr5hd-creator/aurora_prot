@@ -165,28 +165,75 @@ app.get('/memory/upcoming', async (req, res) => {
   console.log('Recieved request at /memory/upcoming');
 
   try{
-    
+    const upcoming = getUpcomingEvents();
+    res.json({ upcoming });
+
+  }catch(error){
+    console.error('Error fetching upcoming memories: ', error);
+    res.status(500).json({ error: 'internal server error while retrieving upcoming events' });
+  }
+
+});
+
+app.get('/context', async (req, res) => {
+
+  console.log('Recieved request at /context');
+  let upcoming = [];
+
+  try{
+    upcoming = getUpcomingEvents();
+
+  }catch(error){
+    console.error('Error fetching upcoming memories: ', error);
+    res.status(500).json({ error: 'internal server error while retrieving upcoming events' });
+  }
+
+  let nextEvent = upcoming.length > 0 ? upcoming[0] : null;
+  if(nextEvent){
+    nextEvent['minutesUntil'] = nextEvent ? Math.floor((new Date(nextEvent.date + ' ' + nextEvent.time) - new Date()) / 60000) : null;
+  }
+
+  const undated = getUndatedEventsAndTasks();
+
+  res.json({
+    now: new Date().toISOString(),
+    upcomingEvents: upcoming,
+    nextEvent: nextEvent,
+    unscheduledItems: undated
+  })
+
+})
+
+function getUpcomingEvents() {
     const upcoming = db
           .prepare(`
             SELECT *
                 FROM memories
-                WHERE type IN ('event', 'task')
+                WHERE type IN ('event')
                   AND datetime(date || ' ' || time) 
                       BETWEEN datetime('now', 'localtime') 
                       AND datetime('now', '+1 hour', 'localtime')
                 ORDER BY date ASC, time ASC
           `)
           .all();
-    
-    res.json({ upcoming });
+    return upcoming;
+}
 
-  }catch(error){
-    console.error('Error fetching upcoming memories: ', error);
-    res.status(500).json({ error: 'internal server error' });
-  }
-});
-
-
+function getUndatedEventsAndTasks() {
+    const upcoming = db
+          .prepare(`
+            SELECT *
+            FROM memories
+            WHERE type IN ('event', 'task')
+              AND (
+                date IS NULL OR date = ''
+                OR time IS NULL OR time = ''
+              )
+            ORDER BY created_at ASC;
+          `)
+          .all();
+    return upcoming;
+}
 
 
 app.listen(port, () => {
