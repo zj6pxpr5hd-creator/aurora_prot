@@ -134,6 +134,12 @@ p {
 	gap: var(--layout-gap);
 }
 
+.right-column {
+	display: flex;
+	flex-direction: column;
+    gap: 10px;
+}
+
 .daily-breakdown{
 	grid-area: left-rail;
 	padding: 20px;
@@ -153,8 +159,22 @@ p {
 	background: var(--aurora-surface);
 	box-shadow: 0 8px 24px var(--aurora-shadow);
     top: 24px;
+	min-height: clamp(100px, 20vh, 250px);
+    flex-shrink: 0;
 }
 
+.goals{
+	grid-area: right-rail;
+	padding: 20px;
+    margin-top: 20px;
+	border: 1px solid var(--aurora-line);
+	border-radius: 16px;
+	background: var(--aurora-surface);
+	box-shadow: 0 8px 24px var(--aurora-shadow);
+    top: 24px;
+	min-height: clamp(100px, 20vh, 250px);
+  	flex-shrink: 0;
+}
 
 
 
@@ -287,6 +307,76 @@ p {
 	line-height: 1.5;
 }
 
+
+
+
+
+.goals-heading {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid var(--aurora-line);
+}
+
+.goals-heading h2 {
+	margin: 2px 0 0;
+	color: var(--aurora-ink);
+	font-size: 20px;
+	font-weight: 600;
+}
+
+.goals-heading time {
+	color: var(--aurora-muted);
+	font-size: 12px;
+}
+
+.goals-list {
+	display: grid;
+	gap: 16px;
+	margin: 0;
+	padding: 18px 0 0;
+	list-style: none;
+}
+
+.goals-item {
+	padding-left: 14px;
+	border-left: 2px solid var(--aurora-accent);
+}
+
+.goals-item strong {
+	display: block;
+	color: var(--aurora-ink);
+	font-size: 14px;
+	line-height: 1.35;
+}
+
+.goals-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 5px;
+	color: var(--aurora-muted);
+	font-size: 11px;
+	text-transform: capitalize;
+}
+
+.goals-item p {
+	margin: 5px 0 0;
+	color: var(--aurora-muted);
+	font-size: 12px;
+	line-height: 1.45;
+}
+
+.goals-empty {
+	margin: 18px 0 0;
+	color: var(--aurora-muted);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+
+
 .section-error {
 	margin: 18px 0 0;
 	color: var(--aurora-accent-dark);
@@ -398,6 +488,20 @@ p {
 	color: var(--aurora-muted);
 	font-size: 14px;
 	line-height: 1.55;
+}
+
+.aurora-response-bubble {
+	width: fit-content;
+	max-width: min(560px, 90%);
+	margin: 0;
+	padding: 16px 18px;
+	border: 1px solid var(--aurora-line);
+	border-radius: 16px 16px 16px 4px;
+	color: var(--aurora-ink);
+	background: var(--aurora-surface);
+	box-shadow: 0 8px 24px var(--aurora-shadow);
+	line-height: 1.55;
+	overflow-wrap: anywhere;
 }
 
 .memory-list {

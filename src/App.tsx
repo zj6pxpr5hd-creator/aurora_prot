@@ -12,18 +12,35 @@ const fetchDailyBreakdown = async (signal?: AbortSignal) => {
   return data.memories;
 };
 
+const fetchGoals = async (signal?: AbortSignal) => {
+  const response = await fetch('http://localhost:3000/goals', { signal });
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.goals;
+};
+
 function App() {  
   const [value, setValue] = useState('');
-  const [message, setMessage] = useState<Array<{type: "event" | "task" | "note" | "idea"; title: string; content: string; date: string | null; time: string | null}>>([]);
   const [error, setError] = useState("");
   const [dailyBreakdown, setDailyBreakdown] = useState<Array<{type: "event" | "task" | "note" | "idea"; title: string; content: string; date: string | null; time: string | null}>>([]);
   const [isDailyBreakdownLoading, setIsDailyBreakdownLoading] = useState(true);
   const [dailyBreakdownError, setDailyBreakdownError] = useState("");
-  const [memoriesError, setMemoriesError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [upComingEvents, setUpComingEvents] = useState<Array<{type: "event" | "task" | "note" | "idea"; title: string; content: string; date: string | null; time: string | null}>>([]);
+  const [upComingEvents, setUpComingEvents] = useState<Array<{type: "event" | "task" | "note" ; title: string; content: string; date: string | null; time: string | null}>>([]);
   const [upComingEventsError, setUpComingEventsError] = useState("");
   const [isUpComingEventsLoading, setUpComingEventsLoading] = useState(true);
+  const [AuroraResponse, setAuroraResponse] = useState('');
+  const [goals, setGoals] = useState<Array<{title: string; content: string; date: string | null; time: string | null}>>([]);
+  const [goalsError, setGoalsError] = useState("");
+  const [isGoalsLoading, setIsGoalsLoading] = useState(true);
+  const [messages, setMessages] = useState<Array<{role: "user" | "assistant"; content: string}>>([]);
+
+
+
+
 
   const createMemory = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -36,13 +53,22 @@ function App() {
     setError("");
     setIsSaving(true);
 
+    const updatedMessages = [
+      ...messages,
+      { role: "user" as const, content: value }
+    ];
+
+    setMessages(updatedMessages);
+
+    localStorage.setItem('messages', JSON.stringify(updatedMessages));
+
     try {
       const response = await fetch('http://localhost:3000/memory', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ value: value }),
+        body: JSON.stringify({ value: value, messages: updatedMessages.slice(-10) }), // Send only the last 10 messages to the server
       });
 
       if (!response.ok) {
@@ -50,7 +76,9 @@ function App() {
       }
 
       const data = await response.json();
-      setMessage(previous => [...previous, ...data.memories]);
+      const AuroraResponse = data.AuroraResponse;
+      setAuroraResponse(AuroraResponse);
+      setMessages(prevMessages => [...prevMessages, { role: "assistant", content: AuroraResponse }]);
     } catch (error) {
       console.error('Error creating memory: ', error);
       setError('Failed to create memory, Please try again later.');
@@ -60,28 +88,6 @@ function App() {
       setIsSaving(false);
     }
 
-  };
-
-  const RetrieveMemories = async () => {
-    setMemoriesError("");
-    try{
-      const response = await fetch('http://localhost:3000/memory', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.text();
-      console.log('Server response:', data);
-      setMessage(JSON.parse(data).memories);
-    }
-    catch (error) {
-      console.error('Error retrieving memories:', error);
-      setMemoriesError('Could not reload memories. Please try again.');
-    }
   };
 
   const retryDailyBreakdown = async () => {
@@ -146,7 +152,36 @@ function App() {
       }
     };
 
+    const loadGoals = async () => {
+      try {
+        const goals = await fetchGoals();
+        if (!controller.signal.aborted) {
+          setGoals(goals);
+          setGoalsError("");
+          setIsGoalsLoading(false);
+        }
+
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error('Error loading goals:', error);
+          setGoalsError('Could not load goals.');
+          setIsGoalsLoading(false);
+        }
+      }
+    };
+
+    const loadStoredMessages = () => {
+      const storedMessages = localStorage.getItem('messages');
+      if (!storedMessages) {
+        return;
+      }
+      setMessages(JSON.parse(storedMessages) || []);
+    }
+
+
     void loadDailyBreakdown();
+    void loadGoals();
+    void loadStoredMessages();
 
     return () => {
       controller.abort();
@@ -216,70 +251,96 @@ function App() {
           )}
         </aside>
 
-
-        <aside className="upcoming-events" aria-labelledby="upcoming-events-title">
-          <div className="upcoming-events-heading">
-            <div>
-              <p className="eyebrow">Upcoming</p>
-              <h2 id="upcoming-events-title">Upcoming Events</h2>
+        <div className="right-column">
+          <aside className="upcoming-events" aria-labelledby="upcoming-events-title">
+            <div className="upcoming-events-heading">
+              <div>
+                <p className="eyebrow">Upcoming</p>
+                <h2 id="upcoming-events-title">Upcoming Events</h2>
+              </div>
             </div>
-          </div>
 
-          {upComingEventsError ? (
-            <div className="section-error" role="alert">
-              <p>{upComingEventsError}</p>
-            </div>
-          ) : isUpComingEventsLoading ? (
-            <ul className="upcoming-events-list upcoming-events-skeleton" aria-label="Loading upcoming events">
-              <li className="upcoming-events-skeleton-item">
-                <span />
-                <span />
-                <span />
-              </li>
-              <li className="upcoming-events-skeleton-item">
-                <span />
-                <span />
-                <span />
-              </li>
-            </ul>
-          ) : upComingEvents.length > 0 ? (
-            <ul className="upcoming-events-list">
-              {upComingEvents.map((memory, index) => (
-                <li className="upcoming-events-item" key={`${memory.type}-${memory.title}-${index}`}>
-                  <strong>{memory.title}</strong>
-                  <div className="upcoming-events-meta">
-                    <span>{memory.time ?? 'No time'}</span>
-                    <span>{memory.type}</span>
-                  </div>
-                  <p>{memory.content}</p>
+            {upComingEventsError ? (
+              <div className="section-error" role="alert">
+                <p>{upComingEventsError}</p>
+              </div>
+            ) : isUpComingEventsLoading ? (
+              <ul className="upcoming-events-list upcoming-events-skeleton" aria-label="Loading upcoming events">
+                <li className="upcoming-events-skeleton-item">
+                  <span />
+                  <span />
+                  <span />
                 </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="upcoming-events-empty">Nothing to do right now.</p>
-          )}
-        </aside>
+                <li className="upcoming-events-skeleton-item">
+                  <span />
+                  <span />
+                  <span />
+                </li>
+              </ul>
+            ) : upComingEvents.length > 0 ? (
+              <ul className="upcoming-events-list">
+                {upComingEvents.map((memory, index) => (
+                  <li className="upcoming-events-item" key={`${memory.type}-${memory.title}-${index}`}>
+                    <strong>{memory.title}</strong>
+                    <div className="upcoming-events-meta">
+                      <span>{memory.time ?? 'No time'}</span>
+                      <span>{memory.type}</span>
+                    </div>
+                    <p>{memory.content}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="upcoming-events-empty">Nothing to do right now.</p>
+            )}
+          </aside>
+
+
+          <aside className="goals" aria-labelledby="goals-title">
+            <div className="goals-heading">
+              <div>
+                <p className="eyebrow">Goals</p>
+                <h2 id="goals-title">Stay Focus!</h2>
+              </div>
+            </div>
+
+            {goalsError ? (
+              <div className="section-error" role="alert">
+                <p>{goalsError}</p>
+              </div>
+            ) : isGoalsLoading ? (
+              <ul className="goals-list goals-skeleton" aria-label="Loading Goals">
+                <li className="goals-skeleton-item">
+                  <span />
+                  <span />
+                  <span />
+                </li>
+                <li className="goals-skeleton-item">
+                  <span />
+                  <span />
+                  <span />
+                </li>
+              </ul>
+            ) : goals.length > 0 ? (
+              <ul className="goals-list">
+                {goals.map((memory, index) => (
+                  <li className="goals-item" key={`${memory.title}-${index}`}>
+                    <strong>{memory.title}</strong>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="goals-empty">Nothing to do right now.</p>
+            )}
+          </aside>
+        </div>
 
 
 
         <div className="main-content">
           <section className="conversation" aria-live="polite">
-            {message.length > 0 ? (
-              <ul className="memory-list">
-                {message.map((memory, index) => (
-                  <li className="memory-item" key={`${memory.type}-${memory.title}-${index}`}>
-                    <div className="memory-item-header">
-                      <h2>{memory.title}</h2>
-                      <span className="memory-type">{memory.type}</span>
-                    </div>
-                    <p>{memory.content}</p>
-                    <div className="memory-meta">
-                      <span>{memory.date ?? "No date"}</span>
-                      <span>{memory.time ?? "No time"}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+            {AuroraResponse ? (
+              <p className="aurora-response-bubble">{AuroraResponse}</p>
             ) : (
               <div className="conversation-empty">
                 <p className="eyebrow">A clear place to begin</p>
@@ -293,9 +354,6 @@ function App() {
               <input aria-label="Message Aurora" type="text" placeholder="e.g. Call Mum tomorrow at 6pm" value={value} onChange={(e) => setValue(e.target.value)} disabled={isSaving}/>
               <button type="submit" aria-label="Send message" disabled={isSaving}>{isSaving ? 'Saving...' : 'Send'} {!isSaving && <span aria-hidden="true">&#8594;</span>}</button>
             </form>
-            <button type="button" onClick={RetrieveMemories}>Reload Memories <span aria-hidden="true">&#8594;</span></button>
-
-            {memoriesError && <p className="section-error" role="alert">{memoriesError}</p>}
             {error && <p>{error}</p>}
           </div>
         </div>
