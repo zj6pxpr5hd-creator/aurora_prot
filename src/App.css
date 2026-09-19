@@ -73,6 +73,7 @@ p {
 }
 
 .app-header {
+	position: relative;
 	flex-shrink: 0;
 	display: flex;
 	align-items: center;
@@ -123,6 +124,47 @@ p {
 	border-radius: 50%;
 	background: #71ad7a;
 	content: "";
+}
+
+.memories-toggle {
+	position: absolute;
+	left: 50%;
+	bottom: 24px;
+	display: grid;
+	width: 38px;
+	height: 38px;
+	place-items: center;
+	border: 0;
+	border-radius: 10px;
+	color: var(--aurora-muted);
+	background: transparent;
+	transform: translateX(-50%);
+	cursor: pointer;
+}
+
+.memories-toggle:hover,
+.memories-toggle[aria-pressed="true"] {
+	color: var(--aurora-accent);
+}
+
+.memories-toggle:focus-visible,
+.memory-actions button:focus-visible,
+.memory-delete-confirmation button:focus-visible,
+.memory-editor button:focus-visible,
+.memory-editor input:focus-visible,
+.memory-editor textarea:focus-visible {
+	outline: 3px solid var(--aurora-accent-soft);
+	outline-offset: 2px;
+}
+
+.memories-toggle svg {
+	width: 22px;
+	height: 22px;
+	fill: none;
+	stroke: currentColor;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	stroke-width: 1.6;
 }
 
 .app-layout {
@@ -504,6 +546,33 @@ p {
 	overflow-wrap: anywhere;
 }
 
+.memories-view {
+	min-height: 0;
+	overflow-y: auto;
+	padding: 32px 8px 20px 0;
+}
+
+.memories-view-heading {
+	display: flex;
+	align-items: end;
+	justify-content: space-between;
+	gap: 20px;
+	margin-bottom: 22px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid var(--aurora-line);
+}
+
+.memories-view-heading h2 {
+	margin: 4px 0 0;
+	color: var(--aurora-ink);
+	font-size: 28px;
+}
+
+.memories-count {
+	color: var(--aurora-muted);
+	font-size: 12px;
+}
+
 .memory-list {
 	display: grid;
 	gap: 14px;
@@ -535,7 +604,8 @@ p {
 }
 
 .memory-item > p {
-	color: #55535c;
+	margin: 0;
+	color: var(--aurora-muted);
 	line-height: 1.55;
 }
 
@@ -553,10 +623,107 @@ p {
 
 .memory-meta {
 	display: flex;
+	flex-wrap: wrap;
 	gap: 16px;
 	margin-top: 14px;
 	color: var(--aurora-muted);
 	font-size: 12px;
+}
+
+.memory-actions {
+	display: flex;
+	flex: none;
+	gap: 6px;
+}
+
+.memory-actions button,
+.memory-delete-confirmation button,
+.memory-editor button {
+	border: 1px solid var(--aurora-line);
+	border-radius: 7px;
+	padding: 6px 9px;
+	color: var(--aurora-ink);
+	background: transparent;
+	cursor: pointer;
+	font: inherit;
+	font-size: 11px;
+	font-weight: 700;
+}
+
+.memory-actions button:hover,
+.memory-editor button[type="submit"] {
+	border-color: var(--aurora-accent);
+	color: var(--aurora-accent-dark);
+}
+
+.memory-actions .memory-delete-button:hover {
+	border-color: var(--aurora-accent-dark);
+	color: var(--aurora-accent-dark);
+}
+
+.memory-delete-confirmation {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 16px;
+	padding-top: 12px;
+	border-top: 1px solid var(--aurora-line);
+	color: var(--aurora-accent-dark);
+	font-size: 12px;
+}
+
+.memory-delete-confirmation span {
+	margin-right: auto;
+}
+
+.memory-editor {
+	display: grid;
+	gap: 14px;
+	max-width: 560px;
+}
+
+.memory-editor label {
+	display: grid;
+	gap: 6px;
+	color: var(--aurora-muted);
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.memory-editor input,
+.memory-editor textarea {
+	box-sizing: border-box;
+	width: 100%;
+	border: 1px solid var(--aurora-input-line);
+	border-radius: 8px;
+	padding: 9px 10px;
+	color: var(--aurora-ink);
+	background: var(--aurora-surface);
+	font: inherit;
+	font-size: 13px;
+}
+
+.memory-editor textarea {
+	resize: vertical;
+}
+
+.memory-editor-fields {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px;
+}
+
+.memory-editor-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	padding-top: 4px;
+}
+
+.memories-empty {
+	color: var(--aurora-muted);
+	font-size: 13px;
 }
 
 .composer-wrap {
@@ -674,5 +841,30 @@ p {
 
 	.status-dot::before {
 		margin-right: 0;
+	}
+
+	.memories-toggle {
+		bottom: 24px;
+	}
+
+	.memories-view {
+		padding-top: 24px;
+	}
+
+	.memories-view-heading {
+		align-items: start;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	.memory-item-header {
+		align-items: start;
+		flex-direction: column;
+	}
+
+	.memory-actions {
+		order: -1;
+		width: 100%;
+		justify-content: flex-end;
 	}
 }

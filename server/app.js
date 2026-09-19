@@ -142,7 +142,6 @@ app.get('/memory', async (req, res) => {
     const memories = db
     .prepare('SELECT * FROM memories ORDER BY created_at DESC')
     .all();
-
     res.json({ memories })
 
   }catch (error) {
