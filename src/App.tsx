@@ -2,120 +2,136 @@
 import  {useState, useEffect} from 'react'
 import './App.css';
 
-type Memory = {
-  id: string;
-  type: string;
-  title: string;
-  content: string;
-  date?: string;
-  time?: string;
-};
-
-const initialMemories: Memory[] = [
-  {
-    id: 'memory-1',
-    type: 'personal',
-    title: 'Favourite morning ritual',
-    content: 'A quiet coffee and ten minutes of reading helps start the day well.',
-    date: '2026-09-18',
-    time: '08:00',
-  },
-  {
-    id: 'memory-2',
-    type: 'preference',
-    title: 'Keep plans gentle',
-    content: 'Leave some breathing room between commitments when planning the week.',
-  },
-];
-
-const BrainIcon = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <path d="M9.5 4.5a3 3 0 0 0-5.5 1.6A3.2 3.2 0 0 0 4.7 12a3.1 3.1 0 0 0 1.6 5.8A3 3 0 0 0 12 19V7.5a3 3 0 0 0-2.5-3Z" />
-    <path d="M14.5 4.5a3 3 0 0 1 5.5 1.6 3.2 3.2 0 0 1-.7 5.9 3.1 3.1 0 0 1-1.6 5.8A3 3 0 0 1 12 19V7.5a3 3 0 0 1 2.5-3Z" />
-    <path d="M8 8.5c1.2 0 2 .8 2 2M16 8.5c-1.2 0-2 .8-2 2M8 15.5c1.2 0 2-.8 2-2M16 15.5c-1.2 0-2-.8-2-2" />
-  </svg>
-);
-
-type MemoryItemProps = {
-  memory: Memory;
-  onEdit: (memory: Memory) => void;
-  onDelete: (id: string) => void;
-};
-
-const MemoryItem = ({ memory, onEdit, onDelete }: MemoryItemProps) => {
-  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-
-  return (
-    <li className="memory-item">
-      <div className="memory-item-header">
-        <div>
-          <span className="memory-type">{memory.type}</span>
-          <h2>{memory.title}</h2>
-          <p>{memory.id}</p>
-        </div>
-        <div className="memory-actions">
-          <button type="button" onClick={() => onEdit(memory)}>Edit</button>
-          <button type="button" className="memory-delete-button" onClick={() => setIsConfirmingDelete(true)}>Delete</button>
-        </div>
-      </div>
-      <p>{memory.content}</p>
-      {(memory.date || memory.time) && (
-        <div className="memory-meta">
-          {memory.date && <time dateTime={memory.date}>{memory.date}</time>}
-          {memory.time && <time>{memory.time}</time>}
-        </div>
-      )}
-      {isConfirmingDelete && (
-        <div className="memory-delete-confirmation" role="alert">
-          <span>Delete this memory?</span>
-          <button type="button" onClick={() => onDelete(memory.id)}>Confirm</button>
-          <button type="button" onClick={() => setIsConfirmingDelete(false)}>Cancel</button>
-        </div>
-      )}
-    </li>
-  );
-};
-
-type MemoryEditorProps = {
-  memory: Memory;
-  onSave: (memory: Memory) => void;
-  onCancel: () => void;
-};
-
-const MemoryEditor = ({ memory, onSave, onCancel }: MemoryEditorProps) => {
-  const [draft, setDraft] = useState(memory);
-
-  const updateDraft = (field: keyof Memory, value: string) => {
-    setDraft((current) => ({ ...current, [field]: value }));
+  type Memory = {
+    id: string;
+    type: string;
+    title: string;
+    content: string;
+    date?: string;
+    time?: string;
   };
 
-  return (
-    <form className="memory-editor" onSubmit={(event) => { event.preventDefault(); onSave(draft); }}>
-      <label>
-        Title
-        <input value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} required />
-      </label>
-      <label>
-        Content
-        <textarea value={draft.content} onChange={(event) => updateDraft('content', event.target.value)} required rows={4} />
-      </label>
-      <div className="memory-editor-fields">
-        <label>
-          Date
-          <input type="date" value={draft.date ?? ''} onChange={(event) => updateDraft('date', event.target.value)} />
-        </label>
-        <label>
-          Time
-          <input type="time" value={draft.time ?? ''} onChange={(event) => updateDraft('time', event.target.value)} />
-        </label>
-      </div>
-      <div className="memory-editor-actions">
-        <button type="submit">Save changes</button>
-        <button type="button" onClick={onCancel}>Cancel</button>
-      </div>
-    </form>
+  const initialMemories: Memory[] = [
+    {
+      id: 'memory-1',
+      type: 'personal',
+      title: 'Favourite morning ritual',
+      content: 'A quiet coffee and ten minutes of reading helps start the day well.',
+      date: '2026-09-18',
+      time: '08:00',
+    },
+    {
+      id: 'memory-2',
+      type: 'preference',
+      title: 'Keep plans gentle',
+      content: 'Leave some breathing room between commitments when planning the week.',
+    },
+  ];
+
+  const BrainIcon = () => (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M9.5 4.5a3 3 0 0 0-5.5 1.6A3.2 3.2 0 0 0 4.7 12a3.1 3.1 0 0 0 1.6 5.8A3 3 0 0 0 12 19V7.5a3 3 0 0 0-2.5-3Z" />
+      <path d="M14.5 4.5a3 3 0 0 1 5.5 1.6 3.2 3.2 0 0 1-.7 5.9 3.1 3.1 0 0 1-1.6 5.8A3 3 0 0 1 12 19V7.5a3 3 0 0 1 2.5-3Z" />
+      <path d="M8 8.5c1.2 0 2 .8 2 2M16 8.5c-1.2 0-2 .8-2 2M8 15.5c1.2 0 2-.8 2-2M16 15.5c-1.2 0-2-.8-2-2" />
+    </svg>
   );
-};
+
+  type MemoryItemProps = {
+    memory: Memory;
+    onEdit: (memory: Memory) => void;
+    onDelete: (id: string) => void;
+  };
+
+  const deleteMemory = async (id: string) => {
+    try {
+      const response = await fetch(`http://localhost:3000/memory/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      console.log(`Memory with id ${id} deleted successfully.`);
+    } catch (error) {
+      console.error('Error deleting memory:', error);
+    }
+  };
+
+  const MemoryItem = ({ memory, onEdit, onDelete }: MemoryItemProps) => {
+    const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+
+    return (
+      <li className="memory-item">
+        <div className="memory-item-header">
+          <div>
+            <span className="memory-type">{memory.type}</span>
+            <h2>{memory.title}</h2>
+            <p>{memory.id}</p>
+          </div>
+          <div className="memory-actions">
+            <button type="button" onClick={() => onEdit(memory)}>Edit</button>
+            <button type="button" className="memory-delete-button" onClick={() => setIsConfirmingDelete(true)}>Delete</button>
+          </div>
+        </div>
+        <p>{memory.content}</p>
+        {(memory.date || memory.time) && (
+          <div className="memory-meta">
+            {memory.date && <time dateTime={memory.date}>{memory.date}</time>}
+            {memory.time && <time>{memory.time}</time>}
+          </div>
+        )}
+        {isConfirmingDelete && (
+          <div className="memory-delete-confirmation" role="alert">
+            <span>Delete this memory?</span>
+            <button type="button" onClick={() => onDelete(memory.id)}>Confirm</button>
+            <button type="button" onClick={() => setIsConfirmingDelete(false)}>Cancel</button>
+          </div>
+        )}
+      </li>
+    );
+  };
+
+  type MemoryEditorProps = {
+    memory: Memory;
+    onSave: (memory: Memory) => void;
+    onCancel: () => void;
+  };
+
+  const MemoryEditor = ({ memory, onSave, onCancel }: MemoryEditorProps) => {
+    const [draft, setDraft] = useState(memory);
+
+    const updateDraft = (field: keyof Memory, value: string) => {
+      setDraft((current) => ({ ...current, [field]: value }));
+    };
+
+    return (
+      <form className="memory-editor" onSubmit={(event) => { event.preventDefault(); onSave(draft); }}>
+        <label>
+          Title
+          <input value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} required />
+        </label>
+        <label>
+          Content
+          <textarea value={draft.content} onChange={(event) => updateDraft('content', event.target.value)} required rows={4} />
+        </label>
+        <div className="memory-editor-fields">
+          <label>
+            Date
+            <input type="date" value={draft.date ?? ''} onChange={(event) => updateDraft('date', event.target.value)} />
+          </label>
+          <label>
+            Time
+            <input type="time" value={draft.time ?? ''} onChange={(event) => updateDraft('time', event.target.value)} />
+          </label>
+        </div>
+        <div className="memory-editor-actions">
+          <button type="submit">Save changes</button>
+          <button type="button" onClick={onCancel}>Cancel</button>
+        </div>
+      </form>
+    );
+  };
 
   const fetchDailyBreakdown = async (signal?: AbortSignal) => {
     const response = await fetch('http://localhost:3000/memory/today', { signal });
