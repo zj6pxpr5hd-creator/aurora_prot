@@ -84,8 +84,13 @@ import './App.css';
         {isConfirmingDelete && (
           <div className="memory-delete-confirmation" role="alert">
             <span>Delete this memory?</span>
-            <button type="button" onClick={() => onDelete(memory.id)}>Confirm</button>
-            <button type="button" onClick={() => setIsConfirmingDelete(false)}>Cancel</button>
+            <button type="button" onClick={() => {
+              onDelete(memory.id)
+              deleteMemory(memory.id);
+              }}>Confirm</button>
+            <button type="button" onClick={() => {
+              setIsConfirmingDelete(false);
+              }}>Cancel</button>
           </div>
         )}
       </li>

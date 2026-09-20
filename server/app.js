@@ -409,6 +409,7 @@ app.delete('/memory', async (req, res) => {
   }
 });
 
+
 app.delete('/memory/:id', async (req, res) => {
   console.log('Recieved request at /memory/:id DELETE');
   try{
@@ -421,6 +422,7 @@ app.delete('/memory/:id', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 
 app.get('/memory/:id', async (req, res) => {
   console.log('Recieved request at /memory/:id GET');
