@@ -277,6 +277,24 @@ async function createContext(){
   }
 }
 
+async function createFullContext(){
+  const context = await createContext();
+  const memories = await db
+        .prepare(`
+            SELECT *
+            FROM memories
+            ORDER BY created_at ASC;
+          `)
+          .all();
+  delete context.upcomingEvents;
+  context.memories = memories;
+  
+  return {
+    context: context,
+  }
+} 
+
+
 async function getUserGoals(userInput){
   const goals = db
         .prepare(`
@@ -450,6 +468,34 @@ app.delete('/memory/:created_at', async (req, res) => {
 
   }catch (error) {
     console.error('Error deleting memory:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+app.patch('/memory/:id', async (req, res) => {
+  console.log('Recieved request at /memory/:id PATCH');
+  try{
+    const { id } = req.params;
+    const { type, title, content, date, time } = req.body;
+
+    //checks that the memory exists before updating
+    const memory = db.prepare('SELECT * FROM memories WHERE id = ?').get(id);
+    if (!memory) {
+      res.status(404).json({ error: 'Memory not found' });
+      return;
+    }
+    //update the memory with the new values
+    db.prepare(`
+      UPDATE memories
+      SET type = ?, title = ?, content = ?, date = ?, time = ?
+      WHERE id = ?
+    `).run(type, title, content, date, time, id);
+
+    res.json({ message: 'Memory updated' });
+
+  }catch (error) {
+    console.error('Error updating memory:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

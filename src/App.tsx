@@ -67,7 +67,6 @@ import './App.css';
           <div>
             <span className="memory-type">{memory.type}</span>
             <h2>{memory.title}</h2>
-            <p>{memory.id}</p>
           </div>
           <div className="memory-actions">
             <button type="button" onClick={() => onEdit(memory)}>Edit</button>
@@ -97,6 +96,28 @@ import './App.css';
     );
   };
 
+  const editMemory = async (draft: Memory) => {
+    try {
+      const response = await fetch(`http://localhost:3000/memory/${draft.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(draft),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      console.log(`Memory with id ${draft.id} updated successfully.`);
+    } catch (error) {
+      console.error('Error editing memory:', error);
+    }
+  };
+
+
+
   type MemoryEditorProps = {
     memory: Memory;
     onSave: (memory: Memory) => void;
@@ -111,7 +132,7 @@ import './App.css';
     };
 
     return (
-      <form className="memory-editor" onSubmit={(event) => { event.preventDefault(); onSave(draft); }}>
+      <form className="memory-editor" onSubmit={(event) => { event.preventDefault(); onSave(draft); editMemory(draft); }}>
         <label>
           Title
           <input value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} required />
