@@ -400,6 +400,8 @@ function App() {
       return;
     }
 
+    fetchMemories();
+
     setIsRelevantMemoriesLoading(true);
     setRelevantMemoriesError("");
 
@@ -420,6 +422,7 @@ function App() {
       }
 
       const data = await response.json();
+      console.log("Relevant memories response:", data);
 
       if (!controller.signal.aborted) {
         setRelevantMemories(data.relevant.relevantMemories);
