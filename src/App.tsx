@@ -1,9 +1,10 @@
 
 import  {useState, useEffect} from 'react'
 import './App.css';
+import MemoryList from './EventList';
 
   type Memory = {
-    id: string;
+    id: number;
     type: string;
     title: string;
     content: string;
@@ -13,7 +14,7 @@ import './App.css';
 
   const initialMemories: Memory[] = [
     {
-      id: 'memory-1',
+      id: 1,
       type: 'personal',
       title: 'Favourite morning ritual',
       content: 'A quiet coffee and ten minutes of reading helps start the day well.',
@@ -21,7 +22,7 @@ import './App.css';
       time: '08:00',
     },
     {
-      id: 'memory-2',
+      id: 2,
       type: 'preference',
       title: 'Keep plans gentle',
       content: 'Leave some breathing room between commitments when planning the week.',
@@ -39,10 +40,10 @@ import './App.css';
   type MemoryItemProps = {
     memory: Memory;
     onEdit: (memory: Memory) => void;
-    onDelete: (id: string) => void;
+    onDelete: (id: number) => void;
   };
 
-  const deleteMemory = async (id: string) => {
+  const deleteMemory = async (id: number) => {
     try {
       const response = await fetch(`http://localhost:3000/memory/${id}`, {
         method: 'DELETE',
@@ -200,6 +201,7 @@ function App() {
   const [memories, setMemories] = useState<Memory[]>(initialMemories);
   const [isMemoriesOpen, setIsMemoriesOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
+  const [relevantMemories, setRelevantMemories] = useState<Array<{memoryId: number; reason: string}>>([]);
 
 
   const fetchMemories = async (signal?: AbortSignal) => {
@@ -367,6 +369,33 @@ function App() {
   }).format(new Date());
 
 
+  const getMostRelevant = async () => {
+    
+    try {
+      const response = await fetch('http://localhost:3000/relevant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ messages: messages.slice(-10) }), // Send only the last 10 messages to the server
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Relevant memories response:', data);
+
+      setRelevantMemories(data.relevant.relevantMemories);
+      fetchMemories(); // Refresh the memories list after getting relevant memories
+
+
+    } catch (error) {
+      console.error('Error fetching relevant memories:', error);
+    }
+  };
+
 
   return(
     <main className="app-shell">
@@ -395,7 +424,8 @@ function App() {
       </header>
 
       <div className="app-layout">
-        <aside className="daily-breakdown" aria-labelledby="daily-breakdown-title">
+        <div className="left-column">
+          <aside className="daily-breakdown" aria-labelledby="daily-breakdown-title">
           <div className="daily-breakdown-heading">
             <div>
               <p className="eyebrow">Your day</p>
@@ -438,7 +468,20 @@ function App() {
           ) : (
             <p className="daily-breakdown-empty">Nothing planned for today.</p>
           )}
-        </aside>
+          </aside>
+
+          {relevantMemories.length > 0 ? <MemoryList memories={memories} relevantMemories={relevantMemories} /> : ( 
+            <button
+            type="button"
+            aria-label="Open Aurora memories"
+            title="Open Aurora memories"
+            className='show-relevant-memories-button'
+            onClick={() => {
+              getMostRelevant();
+            }}
+            >
+          </button>) }
+        </div>
 
         <div className="right-column">
           <aside className="upcoming-events" aria-labelledby="upcoming-events-title">

@@ -176,7 +176,7 @@ p {
 	gap: var(--layout-gap);
 }
 
-.right-column {
+.right-column, .left-column {
 	display: flex;
 	flex-direction: column;
     gap: 10px;
@@ -218,7 +218,32 @@ p {
   	flex-shrink: 0;
 }
 
+.memory-list {
+	grid-area: right-rail;
+	padding: 20px;
+	margin-top: 20px;
+	border: 1px solid var(--aurora-line);
+	border-radius: 16px;
+	background: var(--aurora-surface);
+	box-shadow: 0 8px 24px var(--aurora-shadow);
+	top: 24px;
+	min-height: clamp(100px, 20vh, 250px);
+  	flex-shrink: 0;
+}
 
+.show-relevant-memories-button {
+	border: 1px solid var(--aurora-accent);
+	border-radius: 8px;
+	padding: 7px 10px;
+	color: var(--aurora-accent-dark);
+	background: transparent;
+	cursor: pointer;
+	font: inherit;
+	font-size: 12px;
+	font-weight: 700;
+	grid-area: left-rail;
+	min-height: clamp(20px, 50vh, 25px);
+}
 
 .daily-breakdown-heading {
 	display: flex;

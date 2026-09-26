@@ -9,44 +9,6 @@ const app = express();
 const port = 3000;
 const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
 
-app.use(express.json());
-app.use(cors());
-
-app.get('/', (req, res) => {
-    console.log('Received request at /');
-    res.send('Aurora server is running');
-});
-
-app.post('/memory', async (req, res) => {
-    console.log('Received request at /memory');
-
-    const value = req.body.value;
-    const messages = req.body.messages || [];
-    const d = new Date();
-    const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-    const prompt = `
-      You are Aurora, a personal digital secretary.
-
-      Your job is to understand what the user tells you and extract any information that should be remembered.
-
-      Classify each piece of information as one of:
-      - event: something happening at a specific time or date
-      - task: something the user needs to do
-      - note: information the user wants remembered
-      - goal: a goal the user is trying to achieve
-
-      Rules:
-      - Extract every distinct piece of information worth remembering.
-      - Do not invent information that the user did not provide.
-      - Use null when a date or time is not available.
-      - If the message contains nothing worth remembering, return an empty memories array.
-      - The current date is ${localDate}.
-      - Return JSON only. No markdown, explanations, or additional text.
-
-      User message:
-      ${value}
-      `;
 
     const MemorySchema = z.object({
       type: z.enum(["event", "task", "note", "goal"]),
@@ -92,6 +54,75 @@ app.post('/memory', async (req, res) => {
       required: ["memories"],
     };
 
+    const contextualAIResponseSchema = z.object({
+      relevantMemories: z.array(z.object({
+        memoryId: z.number(),
+        reason: z.string(),
+      })),
+    });
+
+    const contextualAiResponseJsonSchema = {
+      type: "object",
+      properties: {
+        relevantMemories: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              memoryId: {
+                type: "number",
+              },
+              reason: {
+                type: "string",
+              },
+            },
+            required: ["memoryId", "reason"],
+          },
+        },
+      },
+      required: ["relevantMemories"],
+    };
+
+
+
+app.use(express.json());
+app.use(cors());
+
+app.get('/', (req, res) => {
+    console.log('Received request at /');
+    res.send('Aurora server is running');
+});
+
+app.post('/memory', async (req, res) => {
+    console.log('Received request at /memory');
+
+    const value = req.body.value;
+    const messages = req.body.messages || [];
+    const d = new Date();
+    const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    const prompt = `
+      You are Aurora, a personal digital secretary.
+
+      Your job is to understand what the user tells you and extract any information that should be remembered.
+
+      Classify each piece of information as one of:
+      - event: something happening at a specific time or date
+      - task: something the user needs to do
+      - note: information the user wants remembered
+      - goal: a goal the user is trying to achieve
+
+      Rules:
+      - Extract every distinct piece of information worth remembering.
+      - Do not invent information that the user did not provide.
+      - Use null when a date or time is not available.
+      - If the message contains nothing worth remembering, return an empty memories array.
+      - The current date is ${localDate}.
+      - Return JSON only. No markdown, explanations, or additional text.
+
+      User message:
+      ${value}
+      `;
 
       try {
         //GEMINI API CALL
@@ -499,6 +530,110 @@ app.patch('/memory/:id', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+async function getMoreRelevant(messages){
+
+  const conversation = messages
+    .map((msg) => `${msg.role}: ${msg.content}`)
+    .join("\n");
+
+  const context = await createContext();
+  const prompt = `
+    You are Aurora, a personal AI secretary.
+
+    Your job is to help the user focus on what matters right now.
+
+    You will receive:
+
+    * The current date and time
+    * A list of memories belonging to the user
+    * Recent conversation messages, if available
+
+    Your task is to determine which pieces of information are most relevant to the user RIGHT NOW.
+
+    Consider factors such as:
+
+    * How soon an event or deadline is
+    * Whether something is overdue
+    * Whether something requires action
+    * The importance of the information
+    * Whether it is directly relevant to the user's current situation
+    * Whether multiple memories are connected
+    * Whether something deserves to be resurfaced even if it is not urgent
+
+    Do NOT simply return the newest memories.
+    Do NOT return everything.
+    Do NOT assume that every task or event is important.
+    Do NOT invent information that is not present in the context.
+
+    The goal is to reduce the user's cognitive load by surfacing only the information that is genuinely worth their attention at this moment.
+
+    For each selected memory, explain briefly why Aurora considers it relevant.
+
+    Return only valid JSON in this format:
+
+    {
+    "relevantMemories": [
+    {
+    "memoryId": 123,
+    "reason": "Physics exam is tomorrow and the lab report needs to be brought."
+    }
+    ]
+    }
+
+    Select at most 5 memories.
+
+    If nothing deserves particular attention right now, return an empty array.
+
+    Current Context:
+      ${JSON.stringify(context)}
+
+    Recent conversation:
+      ${conversation}
+
+  `;
+
+      try {
+        //GEMINI API CALL
+        const interaction = await ai.interactions.create({
+          model: "gemini-3.5-flash-lite",
+          input: prompt,
+          response_format: {
+            type: "text",
+            mime_type: "application/json",
+            schema: contextualAiResponseJsonSchema,
+          },
+        });
+        if (!interaction.output_text) {
+          throw new Error("Gemini returned no output");
+        }
+
+        const parsed = JSON.parse(interaction.output_text);
+        const result = contextualAIResponseSchema.parse(parsed);
+
+        return result;
+
+      } catch (error){
+        console.error('Error creating memory:', error);
+        throw error;
+      } 
+
+};
+
+app.post('/relevant', async (req, res) => {
+  console.log('Recieved request at /relevant');
+  const messages = req.body.messages || [];
+  try{
+    const relevant = await getMoreRelevant(messages);
+    res.json({ relevant });
+
+  }catch(error){
+    console.error('Error fetching relevant memories: ', error);
+    res.status(500).json({ error: 'internal server error while retrieving relevant memories' });
+  }
+
+});
+
 
 app.listen(port, () => {
     console.log(`Aurora listening at http://localhost:${port}`);
