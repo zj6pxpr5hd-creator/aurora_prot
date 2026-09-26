@@ -1,5 +1,3 @@
-import { useMemo } from "react";
-
 type Memory = {
   id: number;
   type: string;
@@ -20,48 +18,48 @@ interface MemoryListProps {
 }
 
 function MemoryList({ memories, relevantMemories }: MemoryListProps) {
-  // Costruiamo un Set con gli id "rilevanti", convertiti in stringa
-  // per farli combaciare con Memory.id (che è string).
-  // Senza questa conversione, Set.has() non troverebbe mai una
-  // corrispondenza perché 1 (number) !== "1" (string) in JS/TS.
-  const relevantIds = useMemo<Set<number>>(
-    () => new Set(relevantMemories.map((m) => m.memoryId)),
-    [relevantMemories]
-  );
-  console.log("Relevant IDs:", relevantIds); // Debug: stampiamo il Set di ID rilevanti
-
-  // Filtriamo l'array completo, tenendo solo le memorie il cui id
-  // è presente nel Set di quelle rilevanti.
-  const visibleMemories = memories.filter((memory) =>
-  {
-    return relevantIds.has(memory.id)
-  }
-  );
-  console.log("Visible Memories:", visibleMemories); // Debug: stampiamo le memorie filtrate
+  const visibleMemories = relevantMemories
+    .map((relevantMemory) => ({
+      memory: memories.find((memory) => memory.id === relevantMemory.memoryId),
+      reason: relevantMemory.reason,
+    }))
+    .filter((item): item is { memory: Memory; reason: string } => Boolean(item.memory));
 
   return (
-    <div className="memory-list">
-      {visibleMemories.map((memory) => (
-        // key = memory.id, valore stabile e univoco per ogni elemento
-        <MemoryCard key={memory.id} memory={memory} />
+    <ul className="relevant-memory-list">
+      {visibleMemories.map(({ memory, reason }, index) => (
+        <MemoryCard key={memory.id} memory={memory} reason={reason} rank={index + 1} />
       ))}
-    </div>
+    </ul>
   );
 }
 
 interface MemoryCardProps {
   memory: Memory;
+  reason: string;
+  rank: number;
 }
 
-function MemoryCard({ memory }: MemoryCardProps) {
+function MemoryCard({ memory, reason, rank }: MemoryCardProps) {
   return (
-    <div className="memory-card">
-      <h3 className="memory-card-title">{memory.title}</h3>
-      <p className="memory-card-content">{memory.content}</p>
-      {/* date/time sono opzionali, quindi li mostriamo solo se presenti */}
-      {memory.date && <span>{memory.date}</span>}
-      {memory.time && <span>{memory.time}</span>}
-    </div>
+    <li className="relevant-memory-card">
+      <div className="relevant-memory-card-header">
+        <div>
+          <span className="memory-type">{memory.type}</span>
+          <h3>{memory.title}</h3>
+        </div>
+        <span className="relevant-memory-marker" aria-hidden="true">{String(rank).padStart(2, '0')}</span>
+      </div>
+      <p className="relevant-memory-content">{memory.content}</p>
+      <div className="relevant-memory-meta">
+        {memory.date && <time dateTime={memory.date}>{memory.date}</time>}
+        {memory.time && <span>{memory.time}</span>}
+      </div>
+      <p className="relevant-memory-reason">
+        <span>Why it surfaced</span>
+        {reason}
+      </p>
+    </li>
   );
 }
 

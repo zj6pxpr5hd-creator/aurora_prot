@@ -37,6 +37,29 @@ import MemoryList from './EventList';
     </svg>
   );
 
+const RelevanceIcon = () => (
+  <svg 
+    viewBox="0 0 24 24" 
+    width="24" 
+    height="24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    aria-hidden="true" 
+    focusable="false"
+  >
+    <path d="M12 4v10" />
+    <path d="M12 18h.01" />
+    <path d="M4.5 7.5l2 2" />
+    <path d="M19.5 7.5l-2 2" />
+    <path d="M3 14h2" />
+    <path d="M19 14h2" />
+  </svg>
+);
+
+
   type MemoryItemProps = {
     memory: Memory;
     onEdit: (memory: Memory) => void;
@@ -202,7 +225,9 @@ function App() {
   const [isMemoriesOpen, setIsMemoriesOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
   const [relevantMemories, setRelevantMemories] = useState<Array<{memoryId: number; reason: string}>>([]);
-
+  const [isRelevantMemoriesLoading, setIsRelevantMemoriesLoading] = useState(false);
+  const [relevantMemoriesError, setRelevantMemoriesError] = useState("");
+  const [isRelevantMemoriesOpen, setIsRelevantMemoriesOpen] = useState(false);
 
   const fetchMemories = async (signal?: AbortSignal) => {
     try {
@@ -308,6 +333,7 @@ function App() {
     const controller = new AbortController();
 
     const loadDailyBreakdown = async () => {
+      setIsDailyBreakdownLoading(true);
       try {
         const memories = await fetchDailyBreakdown(controller.signal);
 
@@ -327,6 +353,8 @@ function App() {
     };
 
     const loadGoals = async () => {
+
+      setIsGoalsLoading(true);
       try {
         const goals = await fetchGoals();
         if (!controller.signal.aborted) {
@@ -362,22 +390,29 @@ function App() {
     };
   }, []);
 
-  const formattedDate = new Intl.DateTimeFormat(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  }).format(new Date());
 
 
-  const getMostRelevant = async () => {
-    
+  useEffect(() => {
+  const controller = new AbortController();
+
+  const loadRelevantMemories = async () => {
+    if (relevantMemories.length !== 0) {
+      return;
+    }
+
+    setIsRelevantMemoriesLoading(true);
+    setRelevantMemoriesError("");
+
     try {
-      const response = await fetch('http://localhost:3000/relevant', {
-        method: 'POST',
+      const response = await fetch("http://localhost:3000/relevant", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ messages: messages.slice(-10) }), // Send only the last 10 messages to the server
+        body: JSON.stringify({
+          messages: messages.slice(-10),
+        }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -385,16 +420,37 @@ function App() {
       }
 
       const data = await response.json();
-      console.log('Relevant memories response:', data);
 
-      setRelevantMemories(data.relevant.relevantMemories);
-      fetchMemories(); // Refresh the memories list after getting relevant memories
-
-
+      if (!controller.signal.aborted) {
+        setRelevantMemories(data.relevant.relevantMemories);
+      }
     } catch (error) {
-      console.error('Error fetching relevant memories:', error);
+      if (!controller.signal.aborted) {
+        console.error("Error loading relevant memories:", error);
+        setRelevantMemoriesError("Could not load relevant memories.");
+      }
+    } finally {
+      if (!controller.signal.aborted) {
+        setIsRelevantMemoriesLoading(false);
+      }
     }
   };
+
+  void loadRelevantMemories();
+
+  return () => {
+    controller.abort();
+  };
+}, [messages, memories.length, relevantMemories.length]);
+
+
+  const formattedDate = new Intl.DateTimeFormat(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date());
+
+
 
 
   return(
@@ -407,6 +463,7 @@ function App() {
         </div>
         
         <span className="status-dot">Ready</span>
+
         <button
           type="button"
           className="memories-toggle"
@@ -414,6 +471,7 @@ function App() {
           aria-pressed={isMemoriesOpen}
           title="Open Aurora memories"
           onClick={() => {
+            setIsRelevantMemoriesOpen(false);
             setIsMemoriesOpen((isOpen) => !isOpen);
             setEditingMemory(null);
             fetchMemories();
@@ -421,6 +479,27 @@ function App() {
         >
           <BrainIcon />
         </button>
+      
+
+            <button
+            type="button"
+            aria-label="Show Memories Aurora find Relevant"
+            title="Show Memories Aurora find Relevant"
+            className='show-relevant-memories-toggle'          
+            aria-pressed={isRelevantMemoriesOpen}
+            onClick={() => {
+              setIsMemoriesOpen(false);
+              setIsRelevantMemoriesOpen((isOpen) => !isOpen);
+            }}
+            >
+            <RelevanceIcon />
+          </button>
+
+      
+      
+      
+      
+      
       </header>
 
       <div className="app-layout">
@@ -470,17 +549,7 @@ function App() {
           )}
           </aside>
 
-          {relevantMemories.length > 0 ? <MemoryList memories={memories} relevantMemories={relevantMemories} /> : ( 
-            <button
-            type="button"
-            aria-label="Open Aurora memories"
-            title="Open Aurora memories"
-            className='show-relevant-memories-button'
-            onClick={() => {
-              getMostRelevant();
-            }}
-            >
-          </button>) }
+
         </div>
 
         <div className="right-column">
@@ -603,6 +672,31 @@ function App() {
               ) : (
                 <p className="memories-empty">No memories saved yet.</p>
               )}
+            </section>
+          ) : isRelevantMemoriesOpen ? (
+            <section className="memories-view relevant-memories-view" aria-labelledby="relevant-memories-title">
+              <div className="memories-view-heading">
+                <div>
+                  <p className="eyebrow">Surfaced for this moment</p>
+                  <h2 id="relevant-memories-title">Relevant memories</h2>
+                </div>
+                {!isRelevantMemoriesLoading && !relevantMemoriesError && (
+                  <span className="memories-count">{relevantMemories.length} {relevantMemories.length === 1 ? 'memory' : 'memories'}</span>
+                )}
+              </div>
+              {
+                isRelevantMemoriesLoading ? (
+                  <p>Loading relevant memories...</p>
+                ) : relevantMemoriesError ? (
+                  <div className="section-error" role="alert">
+                    <p>{relevantMemoriesError}</p>
+                  </div>
+                ) : relevantMemories.length === 0 ? (
+                  <p className="memories-empty">No relevant memories found.</p>
+                ) : (                
+                <MemoryList memories={memories} relevantMemories={relevantMemories} />
+                )
+              }
             </section>
           ) : (
             <>
