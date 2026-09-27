@@ -210,7 +210,6 @@ app.get('/memory/upcoming', async (req, res) => {
   }
 });
 
-// CONTEXT ENDPOINT 
 app.get('/context', async (req, res) => {
   console.log('Recieved request at /context');
   try {
@@ -222,6 +221,33 @@ app.get('/context', async (req, res) => {
   }
 });
 
+/**
+ * Builds the comprehensive current context payload for Aurora, including current date/time,
+ * active persistent memories with time statuses, upcoming events, undated items, and user goals.
+ *
+ * @returns {Promise<{
+ *   currentTime: {
+ *     timeZone: string,
+ *     date: string,      // Format: 'YYYY-MM-DD'
+ *     time: string,      // Format: 'HH:MM'
+ *     datetime: string,  // Format: 'YYYY-MM-DD HH:MM:SS'
+ *     weekday: string    // e.g. 'Monday'
+ *   },
+ *   persistentMemories: Array<{
+ *     id: number,
+ *     type: string,      // 'event', 'task', 'note', or 'goal'
+ *     title: string,
+ *     content: string,
+ *     date: string|null, // Format: 'YYYY-MM-DD' or null
+ *     time: string|null, // Format: 'HH:MM' or null
+ *     timeStatus: string // 'unscheduled', 'overdue_task', 'past_event', 'past_event_today', 'today_upcoming', 'tomorrow', 'future'
+ *   }>,
+ *   upcomingEventsNextHour: Array<object>,
+ *   nextEvent: object|null,
+ *   unscheduledItems: Array<object>,
+ *   goals: Array<object>
+ * }>} Object containing complete structured context.
+ */
 async function createContext(){
   const nowInfo = getCurrentTimeInfo();
   let upcoming = [];  
@@ -273,6 +299,13 @@ async function createContext(){
   };
 }
 
+/**
+ * Wraps createContext result into a context container object.
+ *
+ * @returns {Promise<{
+ *   context: object
+ * }>} Object containing context data.
+ */
 async function createFullContext(){
   const context = await createContext();
   return {
@@ -280,6 +313,19 @@ async function createFullContext(){
   };
 } 
 
+/**
+ * Fetches user goals from database.
+ *
+ * @returns {Promise<Array<{
+ *   id: number,
+ *   type: string,      // 'goal'
+ *   title: string,
+ *   content: string,
+ *   date: string|null,
+ *   time: string|null,
+ *   created_at: string
+ * }>>} Array of user goal objects.
+ */
 async function getUserGoals(){
   return getUserGoalsDB();
 }
@@ -296,6 +342,15 @@ app.get('/goals', async (req, res) => {
   }
 });
 
+/**
+ * Generates Aurora's conversational response given recent dialogue messages.
+ *
+ * @param {Array<{
+ *   role: 'user'|'assistant',
+ *   content: string
+ * }>} messages - Array of recent chat message objects.
+ * @returns {Promise<string>} Aurora's natural text response string.
+ */
 async function getAuroraResponse(messages){
   const conversation = messages
     .map((msg) => `${msg.role}: ${msg.content}`)
@@ -437,6 +492,20 @@ app.patch('/memory/:id', async (req, res) => {
   }
 });
 
+/**
+ * Determines which active persistent memories are relevant to the user right now based on chat history.
+ *
+ * @param {Array<{
+ *   role: 'user'|'assistant',
+ *   content: string
+ * }>} messages - Array of recent chat message objects.
+ * @returns {Promise<{
+ *   relevantMemories: Array<{
+ *     memoryId: number,
+ *     reason: string
+ *   }>
+ * }>} Object containing relevant memory items and reasons.
+ */
 async function getMoreRelevant(messages){
   const conversation = messages
     .map((msg) => `${msg.role}: ${msg.content}`)

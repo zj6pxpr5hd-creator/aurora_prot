@@ -2,6 +2,21 @@ import db from './db/database.js';
 
 export const DEFAULT_TZ = process.env.TIMEZONE || process.env.TZ || 'Europe/Rome';
 
+/**
+ * Returns formatted date and time information for a given time zone and Date instance.
+ *
+ * @param {string} [timeZone=DEFAULT_TZ] - The IANA time zone identifier (e.g., 'Europe/Rome').
+ * @param {Date} [d=new Date()] - The JS Date object to format.
+ * @returns {{
+ *   timeZone: string,
+ *   date: string,      // Format: 'YYYY-MM-DD'
+ *   time: string,      // Format: 'HH:MM:SS' (24-hour)
+ *   timeHM: string,    // Format: 'HH:MM' (24-hour)
+ *   datetime: string,  // Format: 'YYYY-MM-DD HH:MM:SS'
+ *   weekday: string,   // Format: Full weekday name, e.g. 'Monday'
+ *   iso: string        // Format: UTC ISO string, e.g. '2026-09-27T12:00:00.000Z'
+ * }} Object containing current date and time formatted strings.
+ */
 export function getCurrentTimeInfo(timeZone = DEFAULT_TZ, d = new Date()) {
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -39,6 +54,21 @@ export function getCurrentTimeInfo(timeZone = DEFAULT_TZ, d = new Date()) {
   };
 }
 
+/**
+ * Categorizes a memory's date/time relative to the current local time.
+ *
+ * @param {{
+ *   type: string,        // Memory type: 'event', 'task', 'note', or 'goal'
+ *   date: string|null,   // Format: 'YYYY-MM-DD' or null
+ *   time: string|null    // Format: 'HH:MM' / 'HH:MM:SS' or null
+ * }} memory - The memory object to categorize.
+ * @param {{
+ *   date: string,        // Format: 'YYYY-MM-DD'
+ *   time: string,        // Format: 'HH:MM:SS'
+ *   datetime: string     // Format: 'YYYY-MM-DD HH:MM:SS'
+ * }} nowInfo - The current time object returned by getCurrentTimeInfo().
+ * @returns {'unscheduled'|'overdue_task'|'past_event'|'past_event_today'|'today_upcoming'|'tomorrow'|'future'} The relative time status string.
+ */
 export function categorizeMemoryTime(memory, nowInfo) {
   if (!memory.date) {
     return 'unscheduled';
@@ -66,6 +96,17 @@ export function categorizeMemoryTime(memory, nowInfo) {
   }
 }
 
+/**
+ * Calculates the number of minutes from the current time until a specified memory date and time.
+ *
+ * @param {string|null} memoryDate - Format: 'YYYY-MM-DD' or null.
+ * @param {string|null} memoryTime - Format: 'HH:MM' or 'HH:MM:SS' or null.
+ * @param {{
+ *   date: string,  // Format: 'YYYY-MM-DD'
+ *   time: string   // Format: 'HH:MM:SS'
+ * }} nowInfo - The current time object.
+ * @returns {number|null} The difference in minutes (positive for future, negative for past), or null if date/time is missing.
+ */
 export function calculateMinutesUntil(memoryDate, memoryTime, nowInfo) {
   if (!memoryDate || !memoryTime) return null;
   const formattedTime = memoryTime.length === 5 ? memoryTime + ':00' : memoryTime;
@@ -76,10 +117,26 @@ export function calculateMinutesUntil(memoryDate, memoryTime, nowInfo) {
   return Math.floor(diffMs / 60000);
 }
 
+/**
+ * Fetches event memories scheduled to occur within 1 hour from the given local time.
+ *
+ * @param {{
+ *   date: string,      // Format: 'YYYY-MM-DD'
+ *   time: string,      // Format: 'HH:MM:SS'
+ *   datetime: string   // Format: 'YYYY-MM-DD HH:MM:SS'
+ * }} nowInfo - The current time object.
+ * @returns {Array<{
+ *   id: number,
+ *   type: string,      // 'event'
+ *   title: string,
+ *   content: string,
+ *   date: string,      // Format: 'YYYY-MM-DD'
+ *   time: string,      // Format: 'HH:MM'
+ *   created_at: string
+ * }>} Array of event memory objects scheduled within the next hour.
+ */
 export function getUpcomingEventsDB(nowInfo) {
-  // Return events occurring between current time and 1 hour from now in local time
   const currentLocalDt = nowInfo.datetime;
-  // Calculate +1 hour in local time context
   const [dYear, dMonth, dDay] = nowInfo.date.split('-').map(Number);
   const [tHour, tMin, tSec] = nowInfo.time.split(':').map(Number);
   const localDateObj = new Date(Date.UTC(dYear, dMonth - 1, dDay, tHour, tMin, tSec));
@@ -108,6 +165,19 @@ export function getUpcomingEventsDB(nowInfo) {
   return memories;
 }
 
+/**
+ * Fetches event and task memories that do not have a date or time assigned.
+ *
+ * @returns {Array<{
+ *   id: number,
+ *   type: string,      // 'event' or 'task'
+ *   title: string,
+ *   content: string,
+ *   date: string|null,
+ *   time: string|null,
+ *   created_at: string
+ * }>} Array of undated event and task memory objects.
+ */
 export function getUndatedEventsAndTasksDB() {
   const memories = db.prepare(`
     SELECT *
@@ -122,6 +192,19 @@ export function getUndatedEventsAndTasksDB() {
   return memories;
 }
 
+/**
+ * Fetches all goal memories stored in the database.
+ *
+ * @returns {Array<{
+ *   id: number,
+ *   type: string,      // 'goal'
+ *   title: string,
+ *   content: string,
+ *   date: string|null,
+ *   time: string|null,
+ *   created_at: string
+ * }>} Array of goal memory objects.
+ */
 export function getUserGoalsDB() {
   const goals = db.prepare(`
     SELECT *
@@ -132,6 +215,22 @@ export function getUserGoalsDB() {
   return goals;
 }
 
+/**
+ * Fetches all memories scheduled for today's date.
+ *
+ * @param {{
+ *   date: string  // Format: 'YYYY-MM-DD'
+ * }} nowInfo - The current time object containing today's date.
+ * @returns {Array<{
+ *   id: number,
+ *   type: string,      // 'event', 'task', 'note', or 'goal'
+ *   title: string,
+ *   content: string,
+ *   date: string,      // Format: 'YYYY-MM-DD'
+ *   time: string|null, // Format: 'HH:MM' or null
+ *   created_at: string
+ * }>} Array of memory objects scheduled for today.
+ */
 export function getMemoriesForTodayDB(nowInfo) {
   const memories = db.prepare(`
     SELECT *
@@ -142,6 +241,19 @@ export function getMemoriesForTodayDB(nowInfo) {
   return memories;
 }
 
+/**
+ * Fetches all persistent memories stored in the database.
+ *
+ * @returns {Array<{
+ *   id: number,
+ *   type: string,      // 'event', 'task', 'note', or 'goal'
+ *   title: string,
+ *   content: string,
+ *   date: string|null, // Format: 'YYYY-MM-DD' or null
+ *   time: string|null, // Format: 'HH:MM' or null
+ *   created_at: string
+ * }>} Array of all memory objects ordered by creation timestamp.
+ */
 export function getAllMemoriesDB() {
   const memories = db.prepare(`
     SELECT *
