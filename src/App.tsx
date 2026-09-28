@@ -81,6 +81,7 @@ const RelevanceIcon = () => (
 
       if (data.message && onDeleteSuccess) {
         onDeleteSuccess(data.message);
+        console.log('Info message from server:', data.message);
       }
     } catch (error) {
       console.error('Error deleting memory:', error);
@@ -297,6 +298,7 @@ function App() {
       const data = await response.json();
       const AuroraResponse = data.AuroraResponse;
       setMessages(prevMessages => [...prevMessages, { role: "assistant", content: AuroraResponse }]);
+      localStorage.setItem('messages', JSON.stringify([...updatedMessages, { role: "assistant", content: AuroraResponse }]));
     } catch (error) {
       console.error('Error creating memory: ', error);
       setError('Failed to create memory, Please try again later.');
