@@ -346,14 +346,14 @@ app.get('/goals', async (req, res) => {
  * Generates Aurora's conversational response given recent dialogue messages.
  *
  * @param {Array<{
- *   role: 'user'|'assistant',
+ *   role: 'user'|'assistant'|'info',
  *   content: string
  * }>} messages - Array of recent chat message objects.
  * @returns {Promise<string>} Aurora's natural text response string.
  */
 async function getAuroraResponse(messages){
   const conversation = messages
-    .map((msg) => `${msg.role}: ${msg.content}`)
+    .map((msg) => `${msg.role === 'info' ? 'Info' : msg.role}: ${msg.content}`)
     .join("\n");
   
   console.log('User message:', conversation);
@@ -442,8 +442,30 @@ app.delete('/memory/:id', async (req, res) => {
   console.log('Recieved request at /memory/:id DELETE');
   try{
     const { id } = req.params;
+    const memory = db.prepare('SELECT * FROM memories WHERE id = ?').get(id);
+    if (!memory) {
+      res.status(404).json({ error: 'Memory not found' });
+      return;
+    }
+
     db.prepare('DELETE FROM memories WHERE id = ?').run(id);
-    res.json({ message: 'Memory deleted' });
+
+    let details = memory.title;
+    if (memory.date || memory.time) {
+      const dateTimeParts = [];
+      if (memory.date) dateTimeParts.push(`on ${memory.date}`);
+      if (memory.time) dateTimeParts.push(`at ${memory.time}`);
+      details += ` ${dateTimeParts.join(' ')}`;
+    }
+
+    const infoMessageText = `Memory deleted: ${details.trim()}`;
+
+    res.json({
+      type: "info",
+      action: "memory_deleted",
+      memory: memory,
+      message: infoMessageText
+    });
 
   }catch (error) {
     console.error('Error deleting memory:', error);
@@ -474,18 +496,57 @@ app.patch('/memory/:id', async (req, res) => {
     const { id } = req.params;
     const { type, title, content, date, time } = req.body;
 
-    const memory = db.prepare('SELECT * FROM memories WHERE id = ?').get(id);
-    if (!memory) {
+    const oldMemory = db.prepare('SELECT * FROM memories WHERE id = ?').get(id);
+    if (!oldMemory) {
       res.status(404).json({ error: 'Memory not found' });
       return;
     }
+
     db.prepare(`
       UPDATE memories
       SET type = ?, title = ?, content = ?, date = ?, time = ?
       WHERE id = ?
     `).run(type, title, content, date, time, id);
 
-    res.json({ message: 'Memory updated' });
+    const updatedMemory = db.prepare('SELECT * FROM memories WHERE id = ?').get(id);
+
+    const changes = [];
+    if (oldMemory.title !== updatedMemory.title) {
+      changes.push(`title changed to "${updatedMemory.title}"`);
+    }
+    if (oldMemory.time !== updatedMemory.time && oldMemory.date === updatedMemory.date) {
+      const oldTime = oldMemory.time || 'no time';
+      const newTime = updatedMemory.time || 'no time';
+      changes.push(`moved from ${oldTime} to ${newTime}`);
+    } else {
+      if (oldMemory.date !== updatedMemory.date) {
+        const oldDate = oldMemory.date || 'no date';
+        const newDate = updatedMemory.date || 'no date';
+        changes.push(`date changed from ${oldDate} to ${newDate}`);
+      }
+      if (oldMemory.time !== updatedMemory.time) {
+        const oldTime = oldMemory.time || 'no time';
+        const newTime = updatedMemory.time || 'no time';
+        changes.push(`time changed from ${oldTime} to ${newTime}`);
+      }
+    }
+    if (oldMemory.content !== updatedMemory.content) {
+      changes.push(`content updated`);
+    }
+    if (oldMemory.type !== updatedMemory.type) {
+      changes.push(`type changed to ${updatedMemory.type}`);
+    }
+
+    const changeDescription = changes.length > 0 ? changes.join(', ') : 'details updated';
+    const infoMessageText = `Memory updated: ${updatedMemory.title} (${changeDescription}).`;
+
+    res.json({
+      type: "info",
+      action: "memory_updated",
+      oldMemory: oldMemory,
+      memory: updatedMemory,
+      message: infoMessageText
+    });
 
   }catch (error) {
     console.error('Error updating memory:', error);
@@ -497,7 +558,7 @@ app.patch('/memory/:id', async (req, res) => {
  * Determines which active persistent memories are relevant to the user right now based on chat history.
  *
  * @param {Array<{
- *   role: 'user'|'assistant',
+ *   role: 'user'|'assistant'|'info',
  *   content: string
  * }>} messages - Array of recent chat message objects.
  * @returns {Promise<{
@@ -509,7 +570,7 @@ app.patch('/memory/:id', async (req, res) => {
  */
 async function getMoreRelevant(messages){
   const conversation = messages
-    .map((msg) => `${msg.role}: ${msg.content}`)
+    .map((msg) => `${msg.role === 'info' ? 'Info' : msg.role}: ${msg.content}`)
     .join("\n");
 
   const context = await createContext();

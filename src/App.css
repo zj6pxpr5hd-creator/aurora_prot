@@ -578,7 +578,28 @@ p {
 	line-height: 1.55;
 }
 
+.conversation-messages {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.user-message-bubble {
+	align-self: flex-end;
+	width: fit-content;
+	max-width: min(560px, 90%);
+	margin: 0;
+	padding: 14px 18px;
+	border-radius: 16px 16px 4px 16px;
+	color: #fff;
+	background: var(--aurora-accent);
+	box-shadow: 0 8px 24px var(--aurora-shadow);
+	line-height: 1.55;
+	overflow-wrap: anywhere;
+}
+
 .aurora-response-bubble {
+	align-self: flex-start;
 	width: fit-content;
 	max-width: min(560px, 90%);
 	margin: 0;
@@ -590,6 +611,36 @@ p {
 	box-shadow: 0 8px 24px var(--aurora-shadow);
 	line-height: 1.55;
 	overflow-wrap: anywhere;
+}
+
+.info-message-bubble {
+	align-self: center;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	width: fit-content;
+	max-width: min(560px, 90%);
+	margin: 4px 0;
+	padding: 10px 16px;
+	border: 1px dashed var(--aurora-input-line);
+	border-radius: 12px;
+	color: var(--aurora-muted);
+	background: var(--aurora-accent-soft);
+	font-size: 13px;
+	line-height: 1.5;
+	overflow-wrap: anywhere;
+}
+
+.info-message-tag {
+	flex: none;
+	padding: 2px 7px;
+	border-radius: 4px;
+	color: var(--aurora-accent-dark);
+	background: rgba(229, 103, 66, 0.15);
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
 }
 
 .memories-view {
