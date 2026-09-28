@@ -258,7 +258,7 @@ export function getAllMemoriesDB() {
   const memories = db.prepare(`
     SELECT *
     FROM memories
-    ORDER BY created_at ASC
+    ORDER BY created_at DESC
   `).all();
   return memories;
 }

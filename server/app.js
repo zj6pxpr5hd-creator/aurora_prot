@@ -398,10 +398,11 @@ async function getAuroraResponse(messages){
           ---------------
           ${JSON.stringify(context, null, 2)}
 
-          LATEST MESSAGES
+          LATEST MESSAGES (THESE ARE NOT PERSISTENT MEMORIES, THEY ARE JUST RECENT CHAT HISTORY, AND MAY INCLUDE DELETED OR CANCELLED ITEMS THAT SHOULD NOT BE TREATED AS CURRENT FACTS OR COMMITMENTS)
           --------------------
           ${conversation}
   `;
+
 
       try {
         const interaction = await ai.interactions.create({
