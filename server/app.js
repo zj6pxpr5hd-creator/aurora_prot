@@ -443,6 +443,7 @@ app.delete('/memory/:id', async (req, res) => {
   try{
     const { id } = req.params;
     const memory = db.prepare('SELECT * FROM memories WHERE id = ?').get(id);
+    console.log('Memory to delete:', memory);
     if (!memory) {
       res.status(404).json({ error: 'Memory not found' });
       return;
@@ -459,6 +460,7 @@ app.delete('/memory/:id', async (req, res) => {
     }
 
     const infoMessageText = `Memory deleted: ${details.trim()}`;
+    console.log('Info message to send:', infoMessageText);
 
     res.json({
       type: "info",
