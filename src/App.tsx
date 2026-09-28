@@ -1,5 +1,5 @@
 
-import  {useState, useEffect} from 'react'
+import  {useState, useEffect, useRef} from 'react'
 import './App.css';
 import MemoryList from './EventList';
 
@@ -63,10 +63,10 @@ const RelevanceIcon = () => (
   type MemoryItemProps = {
     memory: Memory;
     onEdit: (memory: Memory) => void;
-    onDelete: (id: number) => void;
+    onDelete: (id: number, infoMessage?: string) => void;
   };
 
-  const deleteMemory = async (id: number) => {
+  const deleteMemory = async (id: number, onDeleteSuccess?: (infoMessage: string) => void) => {
     try {
       const response = await fetch(`http://localhost:3000/memory/${id}`, {
         method: 'DELETE',
@@ -76,7 +76,13 @@ const RelevanceIcon = () => (
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      console.log(`Memory with id ${id} deleted successfully.`);
+      const data = await response.json();
+      console.log(`Memory with id ${id} deleted successfully.`, data);
+
+      if (data.message && onDeleteSuccess) {
+        onDeleteSuccess(data.message);
+        console.log('Info message from server:', data.message);
+      }
     } catch (error) {
       console.error('Error deleting memory:', error);
     }
@@ -108,8 +114,9 @@ const RelevanceIcon = () => (
           <div className="memory-delete-confirmation" role="alert">
             <span>Delete this memory?</span>
             <button type="button" onClick={() => {
-              onDelete(memory.id)
-              deleteMemory(memory.id);
+              deleteMemory(memory.id, (infoMessage) => {
+                onDelete(memory.id, infoMessage);
+              });
               }}>Confirm</button>
             <button type="button" onClick={() => {
               setIsConfirmingDelete(false);
@@ -120,7 +127,7 @@ const RelevanceIcon = () => (
     );
   };
 
-  const editMemory = async (draft: Memory) => {
+  const editMemory = async (draft: Memory, onEditSuccess?: (infoMessage: string) => void) => {
     try {
       const response = await fetch(`http://localhost:3000/memory/${draft.id}`, {
         method: 'PATCH',
@@ -134,7 +141,12 @@ const RelevanceIcon = () => (
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      console.log(`Memory with id ${draft.id} updated successfully.`);
+      const data = await response.json();
+      console.log(`Memory with id ${draft.id} updated successfully.`, data);
+
+      if (data.message && onEditSuccess) {
+        onEditSuccess(data.message);
+      }
     } catch (error) {
       console.error('Error editing memory:', error);
     }
@@ -144,7 +156,7 @@ const RelevanceIcon = () => (
 
   type MemoryEditorProps = {
     memory: Memory;
-    onSave: (memory: Memory) => void;
+    onSave: (memory: Memory, infoMessage?: string) => void;
     onCancel: () => void;
   };
 
@@ -156,7 +168,12 @@ const RelevanceIcon = () => (
     };
 
     return (
-      <form className="memory-editor" onSubmit={(event) => { event.preventDefault(); onSave(draft); editMemory(draft); }}>
+      <form className="memory-editor" onSubmit={(event) => {
+        event.preventDefault();
+        editMemory(draft, (infoMessage) => {
+          onSave(draft, infoMessage);
+        });
+      }}>
         <label>
           Title
           <input value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} required />
@@ -216,11 +233,10 @@ function App() {
   const [upComingEvents, setUpComingEvents] = useState<Array<{type: "event" | "task" | "note" ; title: string; content: string; date: string | null; time: string | null}>>([]);
   const [upComingEventsError, setUpComingEventsError] = useState("");
   const [isUpComingEventsLoading, setUpComingEventsLoading] = useState(true);
-  const [AuroraResponse, setAuroraResponse] = useState('');
   const [goals, setGoals] = useState<Array<{title: string; content: string; date: string | null; time: string | null}>>([]);
   const [goalsError, setGoalsError] = useState("");
   const [isGoalsLoading, setIsGoalsLoading] = useState(true);
-  const [messages, setMessages] = useState<Array<{role: "user" | "assistant"; content: string}>>([]);
+  const [messages, setMessages] = useState<Array<{role: "user" | "assistant" | "info"; content: string}>>([]);
   const [memories, setMemories] = useState<Memory[]>(initialMemories);
   const [isMemoriesOpen, setIsMemoriesOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
@@ -228,6 +244,11 @@ function App() {
   const [isRelevantMemoriesLoading, setIsRelevantMemoriesLoading] = useState(false);
   const [relevantMemoriesError, setRelevantMemoriesError] = useState("");
   const [isRelevantMemoriesOpen, setIsRelevantMemoriesOpen] = useState(false);
+  const conversationEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const fetchMemories = async (signal?: AbortSignal) => {
     try {
@@ -276,8 +297,8 @@ function App() {
 
       const data = await response.json();
       const AuroraResponse = data.AuroraResponse;
-      setAuroraResponse(AuroraResponse);
       setMessages(prevMessages => [...prevMessages, { role: "assistant", content: AuroraResponse }]);
+      localStorage.setItem('messages', JSON.stringify([...updatedMessages, { role: "assistant", content: AuroraResponse }]));
     } catch (error) {
       console.error('Error creating memory: ', error);
       setError('Failed to create memory, Please try again later.');
@@ -655,9 +676,16 @@ function App() {
               {editingMemory ? (
                 <MemoryEditor
                   memory={editingMemory}
-                  onSave={(updatedMemory) => {
+                  onSave={(updatedMemory, infoMessage) => {
                     setMemories((current) => current.map((memory) => memory.id === updatedMemory.id ? updatedMemory : memory));
                     setEditingMemory(null);
+                    if (infoMessage) {
+                      setMessages((prevMessages) => {
+                        const updated = [...prevMessages, { role: "info" as const, content: infoMessage }];
+                        localStorage.setItem('messages', JSON.stringify(updated));
+                        return updated;
+                      });
+                    }
                   }}
                   onCancel={() => setEditingMemory(null)}
                 />
@@ -668,7 +696,16 @@ function App() {
                       key={memory.id}
                       memory={memory}
                       onEdit={setEditingMemory}
-                      onDelete={(id) => setMemories((current) => current.filter((memory) => memory.id !== id))}
+                      onDelete={(id, infoMessage) => {
+                        setMemories((current) => current.filter((m) => m.id !== id));
+                        if (infoMessage) {
+                          setMessages((prevMessages) => {
+                            const updated = [...prevMessages, { role: "info" as const, content: infoMessage }];
+                            localStorage.setItem('messages', JSON.stringify(updated));
+                            return updated;
+                          });
+                        }
+                      }}
                     />
                   ))}
                 </ul>
@@ -704,8 +741,32 @@ function App() {
           ) : (
             <>
               <section className="conversation" aria-live="polite">
-                {AuroraResponse ? (
-                  <p className="aurora-response-bubble">{AuroraResponse}</p>
+                {messages.length > 0 ? (
+                  <div className="conversation-messages">
+                    {messages.map((msg, index) => {
+                      if (msg.role === 'user') {
+                        return (
+                          <div key={index} className="user-message-bubble">
+                            {msg.content}
+                          </div>
+                        );
+                      }
+                      if (msg.role === 'info') {
+                        return (
+                          <div key={index} className="info-message-bubble">
+                            <span className="info-message-tag">Info</span>
+                            {msg.content}
+                          </div>
+                        );
+                      }
+                      return (
+                        <p key={index} className="aurora-response-bubble">
+                          {msg.content}
+                        </p>
+                      );
+                    })}
+                    <div ref={conversationEndRef} />
+                  </div>
                 ) : (
                   <div className="conversation-empty">
                     <p className="eyebrow">A clear place to begin</p>

@@ -4,86 +4,93 @@ import * as z from 'zod';
 import "dotenv/config";
 import { GoogleGenAI } from '@google/genai';
 import db from './src/db/database.js';
+import {
+  getCurrentTimeInfo,
+  categorizeMemoryTime,
+  calculateMinutesUntil,
+  getUpcomingEventsDB,
+  getUndatedEventsAndTasksDB,
+  getUserGoalsDB,
+  getMemoriesForTodayDB,
+  getAllMemoriesDB
+} from './src/timeUtils.js';
 
 const app = express();
 const port = 3000;
 const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
 
+const MemorySchema = z.object({
+  type: z.enum(["event", "task", "note", "goal"]),
+  title: z.string(),
+  content: z.string(),
+  date: z.string().nullable(),
+  time: z.string().nullable(),
+});
 
-    const MemorySchema = z.object({
-      type: z.enum(["event", "task", "note", "goal"]),
-      title: z.string(),
-      content: z.string(),
-      date: z.string().nullable(),
-      time: z.string().nullable(),
-    });
+const AIResponseSchema = z.object({
+  memories: z.array(MemorySchema),
+});
 
-    const AIResponseSchema = z.object({
-      memories: z.array(MemorySchema),
-    });
-    
-    const aiResponseJsonSchema = {
-      type: "object",
-      properties: {
-        memories: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              type: {
-                type: "string",
-                enum: ["event", "task", "note", "goal"],
-              },
-              title: {
-                type: "string",
-              },
-              content: {
-                type: "string",
-              },
-              date: {
-                type: ["string", "null"],
-              },
-              time: {
-                type: ["string", "null"],
-              },
-            },
-            required: ["type", "title", "content", "date", "time"],
+const aiResponseJsonSchema = {
+  type: "object",
+  properties: {
+    memories: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          type: {
+            type: "string",
+            enum: ["event", "task", "note", "goal"],
+          },
+          title: {
+            type: "string",
+          },
+          content: {
+            type: "string",
+          },
+          date: {
+            type: ["string", "null"],
+          },
+          time: {
+            type: ["string", "null"],
           },
         },
+        required: ["type", "title", "content", "date", "time"],
       },
-      required: ["memories"],
-    };
+    },
+  },
+  required: ["memories"],
+};
 
-    const contextualAIResponseSchema = z.object({
-      relevantMemories: z.array(z.object({
-        memoryId: z.number(),
-        reason: z.string(),
-      })),
-    });
+const contextualAIResponseSchema = z.object({
+  relevantMemories: z.array(z.object({
+    memoryId: z.number(),
+    reason: z.string(),
+  })),
+});
 
-    const contextualAiResponseJsonSchema = {
-      type: "object",
-      properties: {
-        relevantMemories: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              memoryId: {
-                type: "number",
-              },
-              reason: {
-                type: "string",
-              },
-            },
-            required: ["memoryId", "reason"],
+const contextualAiResponseJsonSchema = {
+  type: "object",
+  properties: {
+    relevantMemories: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          memoryId: {
+            type: "number",
+          },
+          reason: {
+            type: "string",
           },
         },
+        required: ["memoryId", "reason"],
       },
-      required: ["relevantMemories"],
-    };
-
-
+    },
+  },
+  required: ["relevantMemories"],
+};
 
 app.use(express.json());
 app.use(cors());
@@ -98,8 +105,7 @@ app.post('/memory', async (req, res) => {
 
     const value = req.body.value;
     const messages = req.body.messages || [];
-    const d = new Date();
-    const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const nowInfo = getCurrentTimeInfo();
 
     const prompt = `
       You are Aurora, a personal digital secretary.
@@ -115,9 +121,10 @@ app.post('/memory', async (req, res) => {
       Rules:
       - Extract every distinct piece of information worth remembering.
       - Do not invent information that the user did not provide.
-      - Use null when a date or time is not available.
+      - Use null when a date or time is not available. Use YYYY-MM-DD format for date and HH:MM format (24-hour) for time.
       - If the message contains nothing worth remembering, return an empty memories array.
-      - The current date is ${localDate}.
+      - The current local date and time is ${nowInfo.date} ${nowInfo.timeHM} (${nowInfo.weekday}).
+      - Interpret relative dates/times like "tomorrow", "next Tuesday", "at 10" relative to this current date/time (${nowInfo.date} ${nowInfo.timeHM}).
       - Return JSON only. No markdown, explanations, or additional text.
 
       User message:
@@ -125,7 +132,6 @@ app.post('/memory', async (req, res) => {
       `;
 
       try {
-        //GEMINI API CALL
         const interaction = await ai.interactions.create({
           model: "gemini-3.5-flash-lite",
           input: prompt,
@@ -142,7 +148,6 @@ app.post('/memory', async (req, res) => {
         const parsed = JSON.parse(interaction.output_text);
         const result = AIResponseSchema.parse(parsed);
 
-        //save memories to memories table in database
         for (const memory of result.memories) {
           db.prepare(`
             INSERT INTO memories (type, title, content, date, time)
@@ -156,7 +161,6 @@ app.post('/memory', async (req, res) => {
           );
         }
 
-        //get Aurora's text response to the user message
         const AuroraResponse = await getAuroraResponse(messages);
 
         res.json({ result: result, AuroraResponse: AuroraResponse });
@@ -170,172 +174,160 @@ app.post('/memory', async (req, res) => {
 app.get('/memory', async (req, res) => {
   console.log('Recieved request at /memory');
   try{
-    const memories = db
-    .prepare('SELECT * FROM memories ORDER BY created_at DESC')
-    .all();
-    res.json({ memories })
+    const memories = getAllMemoriesDB();
+    res.json({ memories });
 
   }catch (error) {
     console.error('Error fetching memories:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
-})
+});
 
 app.get('/memory/today', async (req, res) => {
   console.log('Recieved request at /memory/today');
   try{
-    const today = new Date().toISOString().split("T")[0];
-    const memories = db
-    .prepare('SELECT * FROM memories WHERE date = ? ORDER BY created_at ASC')
-    .all(today);
-
+    const nowInfo = getCurrentTimeInfo();
+    const memories = getMemoriesForTodayDB(nowInfo);
     res.json({ memories });
 
   }catch (error){
     console.error('Error fetching today\'s memories: ', error);
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Internal server error' });
   }
-})
+});
 
 app.get('/memory/upcoming', async (req, res) => {
   console.log('Recieved request at /memory/upcoming');
 
   try{
-    const upcoming = getUpcomingEvents();
+    const nowInfo = getCurrentTimeInfo();
+    const upcoming = getUpcomingEventsDB(nowInfo);
     res.json({ upcoming });
 
   }catch(error){
     console.error('Error fetching upcoming memories: ', error);
     res.status(500).json({ error: 'internal server error while retrieving upcoming events' });
   }
-
 });
 
-// CONTEXT ENDPOINT 
 app.get('/context', async (req, res) => {
-
   console.log('Recieved request at /context');
-  let upcoming = [];
-
-  try{
-    upcoming = getUpcomingEvents();
-
-  }catch(error){
-    console.error('Error fetching upcoming memories: ', error);
-    res.status(500).json({ error: 'internal server error while retrieving upcoming events' });
+  try {
+    const context = await createContext();
+    res.json(context);
+  } catch (error) {
+    console.error('Error building context: ', error);
+    res.status(500).json({ error: 'internal server error while building context' });
   }
+});
 
-  let nextEvent = upcoming.length > 0 ? upcoming[0] : null;
-  if(nextEvent){
-    nextEvent['minutesUntil'] = nextEvent ? Math.floor((new Date(nextEvent.date + ' ' + nextEvent.time) - new Date()) / 60000) : null;
-  }
-
-  const undated = getUndatedEventsAndTasks();
-
-  res.json({
-    now: new Date().toISOString(),
-    upcomingEvents: upcoming,
-    nextEvent: nextEvent,
-    unscheduledItems: undated
-  })
-
-})
-
-async function getUpcomingEvents() {
-    const upcoming = await db
-          .prepare(`
-            SELECT *
-                FROM memories
-                WHERE type IN ('event')
-                  AND datetime(date || ' ' || time) 
-                      BETWEEN datetime('now', 'localtime') 
-                      AND datetime('now', '+1 hour', 'localtime')
-                ORDER BY date ASC, time ASC
-          `)
-          .all();
-    return upcoming;
-}
-
-async function getUndatedEventsAndTasks() {
-    const upcoming = await db
-          .prepare(`
-            SELECT *
-            FROM memories
-            WHERE type IN ('event', 'task')
-              AND (
-                date IS NULL OR date = ''
-                OR time IS NULL OR time = ''
-              )
-            ORDER BY created_at ASC;
-          `)
-          .all();
-    return upcoming;
-}
-
+/**
+ * Builds the comprehensive current context payload for Aurora, including current date/time,
+ * active persistent memories with time statuses, upcoming events, undated items, and user goals.
+ *
+ * @returns {Promise<{
+ *   currentTime: {
+ *     timeZone: string,
+ *     date: string,      // Format: 'YYYY-MM-DD'
+ *     time: string,      // Format: 'HH:MM'
+ *     datetime: string,  // Format: 'YYYY-MM-DD HH:MM:SS'
+ *     weekday: string    // e.g. 'Monday'
+ *   },
+ *   persistentMemories: Array<{
+ *     id: number,
+ *     type: string,      // 'event', 'task', 'note', or 'goal'
+ *     title: string,
+ *     content: string,
+ *     date: string|null, // Format: 'YYYY-MM-DD' or null
+ *     time: string|null, // Format: 'HH:MM' or null
+ *     timeStatus: string // 'unscheduled', 'overdue_task', 'past_event', 'past_event_today', 'today_upcoming', 'tomorrow', 'future'
+ *   }>,
+ *   upcomingEventsNextHour: Array<object>,
+ *   nextEvent: object|null,
+ *   unscheduledItems: Array<object>,
+ *   goals: Array<object>
+ * }>} Object containing complete structured context.
+ */
 async function createContext(){
+  const nowInfo = getCurrentTimeInfo();
   let upcoming = [];  
   let undated = [];
   let goals = [];
+  let allMemories = [];
 
-  try{
-    upcoming = await getUpcomingEvents();
-    undated = await getUndatedEventsAndTasks();
-    goals = await getUserGoals();
-
-  }catch(error){
-    console.error('Error fetching upcoming memories: ', error);
-    return { error: 'internal server error while retrieving upcoming events' };
+  try {
+    upcoming = getUpcomingEventsDB(nowInfo);
+    undated = getUndatedEventsAndTasksDB();
+    goals = getUserGoalsDB();
+    allMemories = getAllMemoriesDB();
+  } catch (error) {
+    console.error('Error fetching memories for context: ', error);
+    throw error;
   }
 
   let nextEvent = upcoming.length > 0 ? upcoming[0] : null;
   if(nextEvent){
-    nextEvent['minutesUntil'] = nextEvent ? Math.floor((new Date(nextEvent.date + ' ' + nextEvent.time) - new Date()) / 60000) : null;
+    nextEvent = {
+      ...nextEvent,
+      minutesUntil: calculateMinutesUntil(nextEvent.date, nextEvent.time, nowInfo)
+    };
   }
 
-  const d = new Date();
+  const persistentMemories = allMemories.map(mem => ({
+    id: mem.id,
+    type: mem.type,
+    title: mem.title,
+    content: mem.content,
+    date: mem.date,
+    time: mem.time,
+    timeStatus: categorizeMemoryTime(mem, nowInfo)
+  }));
 
-  const localDateTime = 
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ` +
-    `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
-
-  
   return {
-    now: localDateTime,
-    upcomingEvents: upcoming,
+    currentTime: {
+      timeZone: nowInfo.timeZone,
+      date: nowInfo.date,
+      time: nowInfo.timeHM,
+      datetime: nowInfo.datetime,
+      weekday: nowInfo.weekday
+    },
+    persistentMemories: persistentMemories,
+    upcomingEventsNextHour: upcoming,
     nextEvent: nextEvent,
     unscheduledItems: undated,
     goals: goals,
-  }
+  };
 }
 
+/**
+ * Wraps createContext result into a context container object.
+ *
+ * @returns {Promise<{
+ *   context: object
+ * }>} Object containing context data.
+ */
 async function createFullContext(){
   const context = await createContext();
-  const memories = await db
-        .prepare(`
-            SELECT *
-            FROM memories
-            ORDER BY created_at ASC;
-          `)
-          .all();
-  delete context.upcomingEvents;
-  context.memories = memories;
-  
   return {
     context: context,
-  }
+  };
 } 
 
-
-async function getUserGoals(userInput){
-  const goals = db
-        .prepare(`
-            SELECT *
-            FROM memories
-            WHERE type IN ('goal')
-            ORDER BY created_at ASC;
-          `)
-          .all();
-    return goals;
+/**
+ * Fetches user goals from database.
+ *
+ * @returns {Promise<Array<{
+ *   id: number,
+ *   type: string,      // 'goal'
+ *   title: string,
+ *   content: string,
+ *   date: string|null,
+ *   time: string|null,
+ *   created_at: string
+ * }>>} Array of user goal objects.
+ */
+async function getUserGoals(){
+  return getUserGoalsDB();
 }
 
 app.get('/goals', async (req, res) => {
@@ -350,13 +342,21 @@ app.get('/goals', async (req, res) => {
   }
 });
 
+/**
+ * Generates Aurora's conversational response given recent dialogue messages.
+ *
+ * @param {Array<{
+ *   role: 'user'|'assistant'|'info',
+ *   content: string
+ * }>} messages - Array of recent chat message objects.
+ * @returns {Promise<string>} Aurora's natural text response string.
+ */
 async function getAuroraResponse(messages){
-
   const conversation = messages
-    .map((msg) => `${msg.role}: ${msg.content}`)
+    .map((msg) => `${msg.role === 'info' ? 'Info' : msg.role}: ${msg.content}`)
     .join("\n");
   
-    console.log('User message:', conversation);
+  console.log('User message:', conversation);
 
   const context = await createContext();
   const prompt = `
@@ -364,66 +364,47 @@ async function getAuroraResponse(messages){
 
           Your role is not simply to answer questions. Your job is to understand the user's life, remember what matters, notice patterns and inconsistencies, and proactively help the user make better decisions and stay on top of what matters.
 
-          You have access to the user's current context. Use it naturally when it is relevant.
+          You have access to the user's CURRENT CONTEXT. Use it naturally when it is relevant.
 
-          CORE BEHAVIOR:
+          CRITICAL MEMORY AND CONTEXT RULES:
+          1. PERSISTENT MEMORIES AS CURRENT FACT:
+             The 'persistentMemories' list in CURRENT CONTEXT contains the complete set of facts, events, tasks, notes, and goals currently stored in SQLite database. This is your ONLY source of existing facts and knowledge about the user.
 
-          1. REMEMBER
-          When the user tells you something important, acknowledge it naturally. If it has been saved as a memory, do not ask the user to repeat it later.
+          2. RECENT CONVERSATION VS DELETED MEMORIES:
+             The 'LATEST MESSAGES' section contains short-term conversation context for natural dialogue.
+             IF AN EVENT, TASK, OR FACT IS MENTIONED IN LATEST MESSAGES BUT DOES NOT APPEAR IN 'persistentMemories', IT HAS BEEN DELETED OR CANCELLED BY THE USER.
+             You MUST NOT treat deleted memories as existing facts or current commitments.
+             If the user asks what to focus on or asks about their schedule, NEVER assume a deleted item still exists.
+             If the user explicitly asks about a deleted item, inform them that you do not have that saved in your current memories anymore.
 
-          2. CONNECT
-          Look for meaningful connections between what the user is saying now and what you already know.
-          For example, if the user mentions wanting to save money and later talks about buying something expensive, you may point out the connection.
+          3. TIME & DATE AWARENESS:
+             Always evaluate dates and times against 'currentTime' in CURRENT CONTEXT.
+             Pay attention to the 'timeStatus' field of each memory:
+             - 'past_event' or 'past_event_today': The event has ALREADY HAPPENED. Do NOT describe it as an upcoming or future event.
+             - 'overdue_task': A task whose date/time is in the past and was not completed. Highlight it as overdue if relevant.
+             - 'today_upcoming': Happening later today.
+             - 'tomorrow': Happening tomorrow.
+             - 'future': Happening on a future date beyond tomorrow.
+             - 'unscheduled': Has no specific date/time.
 
-          3. NOTICE PATTERNS
-          If the context reveals a meaningful recurring behavior, bring it up when appropriate.
-          Do not invent patterns from insufficient evidence. A single occurrence is not a pattern.
-
-          4. HIGHLIGHT DISCREPANCIES
-          If the user's current intentions, statements, or plans appear to conflict with something they previously told you, gently point it out.
-          Do not judge or lecture. Make the discrepancy visible and let the user decide what to do.
-
-          5. BE PROACTIVE
-          You do not need to wait for a direct question.
-          If something in the context is clearly relevant to the user's current message or situation, bring it up.
-          However, do not overwhelm the user with information just because you have it.
-
-          6. BE KIND, DIRECT AND NATURAL
-          Speak like a thoughtful human secretary who knows the user well.
-          Be warm and concise.
-          Do not be excessively enthusiastic, robotic, formal, or patronizing.
-
-          7. RESPECT THE USER'S AUTONOMY
-          You are a secretary, not a boss.
-          You can point out problems, suggest actions, and challenge inconsistencies, but the user makes the final decision.
-
-          8. USE CONTEXT SELECTIVELY
-          Do not mention context, memories, databases, or internal processes.
-          Do not repeat information unnecessarily.
-          Only use information from the context when it helps the current interaction.
-
-          9. NEVER INVENT KNOWLEDGE
-          Only claim to remember something if it is actually present in the provided context.
-          If you are unsure, say so.
-
-          10. PRIORITIZE RELEVANCE
-          A useful response is better than a comprehensive one.
-          You do not need to mention every relevant piece of context.
-
-          Your response should feel like it comes from an assistant who has been paying attention to the user's life, rather than from a chatbot responding to an isolated message.
+          CORE BEHAVIORS:
+          - REMEMBER & RESPECT DELETIONS: Only claim to remember active persistentMemories.
+          - CONNECT: Point out connections between active memories and conversation.
+          - HIGHLIGHT DISCREPANCIES: Point out conflicts between user statements and active persistent memories.
+          - BE KIND, DIRECT AND NATURAL: Speak like a thoughtful, concise human secretary.
+          - NEVER INVENT KNOWLEDGE: Never assume facts that are not present in persistentMemories.
 
           CURRENT CONTEXT
           ---------------
-          ${JSON.stringify(context)}
+          ${JSON.stringify(context, null, 2)}
 
-          LATEST MESSAGES
+          LATEST MESSAGES (THESE ARE NOT PERSISTENT MEMORIES, THEY ARE JUST RECENT CHAT HISTORY, AND MAY INCLUDE DELETED OR CANCELLED ITEMS THAT SHOULD NOT BE TREATED AS CURRENT FACTS OR COMMITMENTS)
           --------------------
           ${conversation}
-
   `;
 
+
       try {
-        //GEMINI API CALL
         const interaction = await ai.interactions.create({
           model: "gemini-3.5-flash-lite",
           input: prompt,
@@ -440,11 +421,10 @@ async function getAuroraResponse(messages){
         return result;
 
       } catch (error){
-        console.error('Error creating memory:', error);
+        console.error('Error getting Aurora response:', error);
         throw error;
       } 
 }
-
 
 app.delete('/memory', async (req, res) => {
   console.log('Recieved request at /memory DELETE');
@@ -458,20 +438,42 @@ app.delete('/memory', async (req, res) => {
   }
 });
 
-
 app.delete('/memory/:id', async (req, res) => {
   console.log('Recieved request at /memory/:id DELETE');
   try{
     const { id } = req.params;
+    const memory = db.prepare('SELECT * FROM memories WHERE id = ?').get(id);
+    console.log('Memory to delete:', memory);
+    if (!memory) {
+      res.status(404).json({ error: 'Memory not found' });
+      return;
+    }
+
     db.prepare('DELETE FROM memories WHERE id = ?').run(id);
-    res.json({ message: 'Memory deleted' });
+
+    let details = memory.title;
+    if (memory.date || memory.time) {
+      const dateTimeParts = [];
+      if (memory.date) dateTimeParts.push(`on ${memory.date}`);
+      if (memory.time) dateTimeParts.push(`at ${memory.time}`);
+      details += ` ${dateTimeParts.join(' ')}`;
+    }
+
+    const infoMessageText = `Memory deleted: ${details.trim()}`;
+    console.log('Info message to send:', infoMessageText);
+
+    res.json({
+      type: "info",
+      action: "memory_deleted",
+      memory: memory,
+      message: infoMessageText
+    });
 
   }catch (error) {
     console.error('Error deleting memory:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 
 app.get('/memory/:id', async (req, res) => {
   console.log('Recieved request at /memory/:id GET');
@@ -490,40 +492,63 @@ app.get('/memory/:id', async (req, res) => {
   }
 });
 
-app.delete('/memory/:created_at', async (req, res) => {
-  console.log('Recieved request at /memory/:created_at DELETE');
-  try{
-    const { created_at } = req.params;
-    db.prepare('DELETE FROM memories WHERE created_at = ?').run(created_at);
-    res.json({ message: 'Memory deleted' });
-
-  }catch (error) {
-    console.error('Error deleting memory:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-
 app.patch('/memory/:id', async (req, res) => {
   console.log('Recieved request at /memory/:id PATCH');
   try{
     const { id } = req.params;
     const { type, title, content, date, time } = req.body;
 
-    //checks that the memory exists before updating
-    const memory = db.prepare('SELECT * FROM memories WHERE id = ?').get(id);
-    if (!memory) {
+    const oldMemory = db.prepare('SELECT * FROM memories WHERE id = ?').get(id);
+    if (!oldMemory) {
       res.status(404).json({ error: 'Memory not found' });
       return;
     }
-    //update the memory with the new values
+
     db.prepare(`
       UPDATE memories
       SET type = ?, title = ?, content = ?, date = ?, time = ?
       WHERE id = ?
     `).run(type, title, content, date, time, id);
 
-    res.json({ message: 'Memory updated' });
+    const updatedMemory = db.prepare('SELECT * FROM memories WHERE id = ?').get(id);
+
+    const changes = [];
+    if (oldMemory.title !== updatedMemory.title) {
+      changes.push(`title changed to "${updatedMemory.title}"`);
+    }
+    if (oldMemory.time !== updatedMemory.time && oldMemory.date === updatedMemory.date) {
+      const oldTime = oldMemory.time || 'no time';
+      const newTime = updatedMemory.time || 'no time';
+      changes.push(`moved from ${oldTime} to ${newTime}`);
+    } else {
+      if (oldMemory.date !== updatedMemory.date) {
+        const oldDate = oldMemory.date || 'no date';
+        const newDate = updatedMemory.date || 'no date';
+        changes.push(`date changed from ${oldDate} to ${newDate}`);
+      }
+      if (oldMemory.time !== updatedMemory.time) {
+        const oldTime = oldMemory.time || 'no time';
+        const newTime = updatedMemory.time || 'no time';
+        changes.push(`time changed from ${oldTime} to ${newTime}`);
+      }
+    }
+    if (oldMemory.content !== updatedMemory.content) {
+      changes.push(`content updated`);
+    }
+    if (oldMemory.type !== updatedMemory.type) {
+      changes.push(`type changed to ${updatedMemory.type}`);
+    }
+
+    const changeDescription = changes.length > 0 ? changes.join(', ') : 'details updated';
+    const infoMessageText = `Memory updated: ${updatedMemory.title} (${changeDescription}).`;
+
+    res.json({
+      type: "info",
+      action: "memory_updated",
+      oldMemory: oldMemory,
+      memory: updatedMemory,
+      message: infoMessageText
+    });
 
   }catch (error) {
     console.error('Error updating memory:', error);
@@ -531,70 +556,61 @@ app.patch('/memory/:id', async (req, res) => {
   }
 });
 
+/**
+ * Determines which active persistent memories are relevant to the user right now based on chat history.
+ *
+ * @param {Array<{
+ *   role: 'user'|'assistant'|'info',
+ *   content: string
+ * }>} messages - Array of recent chat message objects.
+ * @returns {Promise<{
+ *   relevantMemories: Array<{
+ *     memoryId: number,
+ *     reason: string
+ *   }>
+ * }>} Object containing relevant memory items and reasons.
+ */
 async function getMoreRelevant(messages){
-
   const conversation = messages
-    .map((msg) => `${msg.role}: ${msg.content}`)
+    .map((msg) => `${msg.role === 'info' ? 'Info' : msg.role}: ${msg.content}`)
     .join("\n");
 
   const context = await createContext();
   const prompt = `
     You are Aurora, a personal AI secretary.
 
-    Your job is to help the user focus on what matters right now.
+    Your job is to help the user focus on what matters right now using active persistentMemories.
 
-    You will receive:
-
-    * The current date and time
-    * A list of memories belonging to the user
-    * Recent conversation messages, if available
-
-    Your task is to determine which pieces of information are most relevant to the user RIGHT NOW.
-
-    Consider factors such as:
-
-    * How soon an event or deadline is
-    * Whether something is overdue
-    * Whether something requires action
-    * The importance of the information
-    * Whether it is directly relevant to the user's current situation
-    * Whether multiple memories are connected
-    * Whether something deserves to be resurfaced even if it is not urgent
-
-    Do NOT simply return the newest memories.
-    Do NOT return everything.
-    Do NOT assume that every task or event is important.
-    Do NOT invent information that is not present in the context.
-
-    The goal is to reduce the user's cognitive load by surfacing only the information that is genuinely worth their attention at this moment.
+    CRITICAL RULES:
+    1. ONLY select memory IDs that actually exist in 'persistentMemories' in CURRENT CONTEXT.
+    2. Do NOT select or invent memories that were mentioned in recent chat but deleted from persistentMemories.
+    3. Evaluate time relevance based on 'currentTime' and 'timeStatus' (e.g. overdue tasks, upcoming events today/tomorrow).
 
     For each selected memory, explain briefly why Aurora considers it relevant.
 
     Return only valid JSON in this format:
 
     {
-    "relevantMemories": [
-    {
-    "memoryId": 123,
-    "reason": "Physics exam is tomorrow and the lab report needs to be brought."
-    }
-    ]
+      "relevantMemories": [
+        {
+          "memoryId": 123,
+          "reason": "Physics exam is tomorrow and the lab report needs to be brought."
+        }
+      ]
     }
 
     Select at most 5 memories.
 
-    If nothing deserves particular attention right now, return an empty array.
+    If nothing in persistentMemories deserves particular attention right now, return an empty array.
 
     Current Context:
-      ${JSON.stringify(context)}
+      ${JSON.stringify(context, null, 2)}
 
     Recent conversation:
       ${conversation}
-
   `;
 
       try {
-        //GEMINI API CALL
         const interaction = await ai.interactions.create({
           model: "gemini-3.5-flash-lite",
           input: prompt,
@@ -614,11 +630,10 @@ async function getMoreRelevant(messages){
         return result;
 
       } catch (error){
-        console.error('Error creating memory:', error);
+        console.error('Error getting relevant memories:', error);
         throw error;
       } 
-
-};
+}
 
 app.post('/relevant', async (req, res) => {
   console.log('Recieved request at /relevant');
@@ -631,9 +646,7 @@ app.post('/relevant', async (req, res) => {
     console.error('Error fetching relevant memories: ', error);
     res.status(500).json({ error: 'internal server error while retrieving relevant memories' });
   }
-
 });
-
 
 app.listen(port, () => {
     console.log(`Aurora listening at http://localhost:${port}`);
