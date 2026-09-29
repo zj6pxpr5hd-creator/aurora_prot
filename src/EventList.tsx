@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 type Memory = {
   id: number;
   type: string;
@@ -18,12 +20,25 @@ interface MemoryListProps {
 }
 
 function MemoryList({ memories, relevantMemories }: MemoryListProps) {
-  const visibleMemories = relevantMemories
-    .map((relevantMemory) => ({
-      memory: memories.find((memory) => memory.id === relevantMemory.memoryId),
-      reason: relevantMemory.reason,
-    }))
-    .filter((item): item is { memory: Memory; reason: string } => Boolean(item.memory));
+  // Optimization: Pre-index memories into a Map to achieve O(1) lookups.
+  // Reduces overall matching time complexity from O(N * M) to O(N + M).
+  const memoryMap = useMemo(() => {
+    const map = new Map<number, Memory>();
+    for (const memory of memories) {
+      map.set(memory.id, memory);
+    }
+    return map;
+  }, [memories]);
+
+  // Memoize visible relevant memories to avoid re-filtering on unrelated re-renders
+  const visibleMemories = useMemo(() => {
+    return relevantMemories
+      .map((relevantMemory) => ({
+        memory: memoryMap.get(relevantMemory.memoryId),
+        reason: relevantMemory.reason,
+      }))
+      .filter((item): item is { memory: Memory; reason: string } => Boolean(item.memory));
+  }, [relevantMemories, memoryMap]);
 
   return (
     <ul className="relevant-memory-list">
