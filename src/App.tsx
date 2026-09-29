@@ -1,248 +1,59 @@
-
-import  {useState, useEffect, useRef} from 'react'
+import { useState, useEffect, useRef } from 'react';
 import './App.css';
+import type { Memory, ChatMessage, DailyBreakdownItem, UpcomingEventItem, GoalItem, RelevantMemory } from './types/memory';
+import {
+  fetchMemoriesApi,
+  createMemoryApi,
+  fetchDailyBreakdownApi,
+  fetchGoalsApi,
+  fetchUpcomingEventsApi,
+  fetchRelevantMemoriesApi
+} from './services/api';
+import { Header } from './components/Header';
+import { MemoryItem } from './components/MemoryItem';
+import { MemoryEditor } from './components/MemoryEditor';
+import { DailyBreakdownSection } from './components/DailyBreakdownSection';
+import { RightColumnSections } from './components/RightColumnSections';
+import { ConversationSection } from './components/ConversationSection';
 import MemoryList from './EventList';
 
-  type Memory = {
-    id: number;
-    type: string;
-    title: string;
-    content: string;
-    date?: string;
-    time?: string;
-  };
-
-  const initialMemories: Memory[] = [
-    {
-      id: 1,
-      type: 'personal',
-      title: 'Favourite morning ritual',
-      content: 'A quiet coffee and ten minutes of reading helps start the day well.',
-      date: '2026-09-18',
-      time: '08:00',
-    },
-    {
-      id: 2,
-      type: 'preference',
-      title: 'Keep plans gentle',
-      content: 'Leave some breathing room between commitments when planning the week.',
-    },
-  ];
-
-  const BrainIcon = () => (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M9.5 4.5a3 3 0 0 0-5.5 1.6A3.2 3.2 0 0 0 4.7 12a3.1 3.1 0 0 0 1.6 5.8A3 3 0 0 0 12 19V7.5a3 3 0 0 0-2.5-3Z" />
-      <path d="M14.5 4.5a3 3 0 0 1 5.5 1.6 3.2 3.2 0 0 1-.7 5.9 3.1 3.1 0 0 1-1.6 5.8A3 3 0 0 1 12 19V7.5a3 3 0 0 1 2.5-3Z" />
-      <path d="M8 8.5c1.2 0 2 .8 2 2M16 8.5c-1.2 0-2 .8-2 2M8 15.5c1.2 0 2-.8 2-2M16 15.5c-1.2 0-2-.8-2-2" />
-    </svg>
-  );
-
-const RelevanceIcon = () => (
-  <svg 
-    viewBox="0 0 24 24" 
-    width="24" 
-    height="24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    aria-hidden="true" 
-    focusable="false"
-  >
-    <path d="M12 4v10" />
-    <path d="M12 18h.01" />
-    <path d="M4.5 7.5l2 2" />
-    <path d="M19.5 7.5l-2 2" />
-    <path d="M3 14h2" />
-    <path d="M19 14h2" />
-  </svg>
-);
-
-
-  type MemoryItemProps = {
-    memory: Memory;
-    onEdit: (memory: Memory) => void;
-    onDelete: (id: number, infoMessage?: string) => void;
-  };
-
-  const deleteMemory = async (id: number, onDeleteSuccess?: (infoMessage: string) => void) => {
-    try {
-      const response = await fetch(`http://localhost:3000/memory/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log(`Memory with id ${id} deleted successfully.`, data);
-
-      if (data.message && onDeleteSuccess) {
-        onDeleteSuccess(data.message);
-        console.log('Info message from server:', data.message);
-      }
-    } catch (error) {
-      console.error('Error deleting memory:', error);
-    }
-  };
-
-  const MemoryItem = ({ memory, onEdit, onDelete }: MemoryItemProps) => {
-    const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-
-    return (
-      <li className="memory-item">
-        <div className="memory-item-header">
-          <div>
-            <span className="memory-type">{memory.type}</span>
-            <h2>{memory.title}</h2>
-          </div>
-          <div className="memory-actions">
-            <button type="button" onClick={() => onEdit(memory)}>Edit</button>
-            <button type="button" className="memory-delete-button" onClick={() => setIsConfirmingDelete(true)}>Delete</button>
-          </div>
-        </div>
-        <p>{memory.content}</p>
-        {(memory.date || memory.time) && (
-          <div className="memory-meta">
-            {memory.date && <time dateTime={memory.date}>{memory.date}</time>}
-            {memory.time && <time>{memory.time}</time>}
-          </div>
-        )}
-        {isConfirmingDelete && (
-          <div className="memory-delete-confirmation" role="alert">
-            <span>Delete this memory?</span>
-            <button type="button" onClick={() => {
-              deleteMemory(memory.id, (infoMessage) => {
-                onDelete(memory.id, infoMessage);
-              });
-              }}>Confirm</button>
-            <button type="button" onClick={() => {
-              setIsConfirmingDelete(false);
-              }}>Cancel</button>
-          </div>
-        )}
-      </li>
-    );
-  };
-
-  const editMemory = async (draft: Memory, onEditSuccess?: (infoMessage: string) => void) => {
-    try {
-      const response = await fetch(`http://localhost:3000/memory/${draft.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(draft),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log(`Memory with id ${draft.id} updated successfully.`, data);
-
-      if (data.message && onEditSuccess) {
-        onEditSuccess(data.message);
-      }
-    } catch (error) {
-      console.error('Error editing memory:', error);
-    }
-  };
-
-
-
-  type MemoryEditorProps = {
-    memory: Memory;
-    onSave: (memory: Memory, infoMessage?: string) => void;
-    onCancel: () => void;
-  };
-
-  const MemoryEditor = ({ memory, onSave, onCancel }: MemoryEditorProps) => {
-    const [draft, setDraft] = useState(memory);
-
-    const updateDraft = (field: keyof Memory, value: string) => {
-      setDraft((current) => ({ ...current, [field]: value }));
-    };
-
-    return (
-      <form className="memory-editor" onSubmit={(event) => {
-        event.preventDefault();
-        editMemory(draft, (infoMessage) => {
-          onSave(draft, infoMessage);
-        });
-      }}>
-        <label>
-          Title
-          <input value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} required />
-        </label>
-        <label>
-          Content
-          <textarea value={draft.content} onChange={(event) => updateDraft('content', event.target.value)} required rows={4} />
-        </label>
-        <div className="memory-editor-fields">
-          <label>
-            Date
-            <input type="date" value={draft.date ?? ''} onChange={(event) => updateDraft('date', event.target.value)} />
-          </label>
-          <label>
-            Time
-            <input type="time" value={draft.time ?? ''} onChange={(event) => updateDraft('time', event.target.value)} />
-          </label>
-        </div>
-        <div className="memory-editor-actions">
-          <button type="submit">Save changes</button>
-          <button type="button" onClick={onCancel}>Cancel</button>
-        </div>
-      </form>
-    );
-  };
-
-  const fetchDailyBreakdown = async (signal?: AbortSignal) => {
-    const response = await fetch('http://localhost:3000/memory/today', { signal });
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.memories;
-  };
-
-  const fetchGoals = async (signal?: AbortSignal) => {
-    const response = await fetch('http://localhost:3000/goals', { signal });
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.goals;
-};
-
-
-
+const initialMemories: Memory[] = [
+  {
+    id: 1,
+    type: 'personal',
+    title: 'Favourite morning ritual',
+    content: 'A quiet coffee and ten minutes of reading helps start the day well.',
+    date: '2026-09-18',
+    time: '08:00',
+  },
+  {
+    id: 2,
+    type: 'preference',
+    title: 'Keep plans gentle',
+    content: 'Leave some breathing room between commitments when planning the week.',
+  },
+];
 
 function App() {  
   const [value, setValue] = useState('');
-  const [error, setError] = useState("");
-  const [dailyBreakdown, setDailyBreakdown] = useState<Array<{type: "event" | "task" | "note" | "idea"; title: string; content: string; date: string | null; time: string | null}>>([]);
+  const [error, setError] = useState('');
+  const [dailyBreakdown, setDailyBreakdown] = useState<DailyBreakdownItem[]>([]);
   const [isDailyBreakdownLoading, setIsDailyBreakdownLoading] = useState(true);
-  const [dailyBreakdownError, setDailyBreakdownError] = useState("");
+  const [dailyBreakdownError, setDailyBreakdownError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [upComingEvents, setUpComingEvents] = useState<Array<{type: "event" | "task" | "note" ; title: string; content: string; date: string | null; time: string | null}>>([]);
-  const [upComingEventsError, setUpComingEventsError] = useState("");
+  const [upComingEvents, setUpComingEvents] = useState<UpcomingEventItem[]>([]);
+  const [upComingEventsError, setUpComingEventsError] = useState('');
   const [isUpComingEventsLoading, setUpComingEventsLoading] = useState(true);
-  const [goals, setGoals] = useState<Array<{title: string; content: string; date: string | null; time: string | null}>>([]);
-  const [goalsError, setGoalsError] = useState("");
+  const [goals, setGoals] = useState<GoalItem[]>([]);
+  const [goalsError, setGoalsError] = useState('');
   const [isGoalsLoading, setIsGoalsLoading] = useState(true);
-  const [messages, setMessages] = useState<Array<{role: "user" | "assistant" | "info"; content: string}>>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [memories, setMemories] = useState<Memory[]>(initialMemories);
   const [isMemoriesOpen, setIsMemoriesOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
-  const [relevantMemories, setRelevantMemories] = useState<Array<{memoryId: number; reason: string}>>([]);
+  const [relevantMemories, setRelevantMemories] = useState<RelevantMemory[]>([]);
   const [isRelevantMemoriesLoading, setIsRelevantMemoriesLoading] = useState(false);
-  const [relevantMemoriesError, setRelevantMemoriesError] = useState("");
+  const [relevantMemoriesError, setRelevantMemoriesError] = useState('');
   const [isRelevantMemoriesOpen, setIsRelevantMemoriesOpen] = useState(false);
   const conversationEndRef = useRef<HTMLDivElement>(null);
 
@@ -252,73 +63,55 @@ function App() {
 
   const fetchMemories = async (signal?: AbortSignal) => {
     try {
-      const response = await fetch('http://localhost:3000/memory', { signal });
-      const data = await response.json();
-      console.log('Fetch memories response:', data);
-      setMemories(data.memories || []);
-    } catch (error) {
-      console.error('Error fetching memories:', error);
+      const memoryList = await fetchMemoriesApi(signal);
+      console.log('Fetch memories response:', memoryList);
+      setMemories(memoryList);
+    } catch (err) {
+      console.error('Error fetching memories:', err);
     }
   };
-
 
   const createMemory = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!value.trim()) {
-      setError("Please enter some text.");
+      setError('Please enter some text.');
       return;
     }
 
-    setError("");
+    setError('');
     setIsSaving(true);
 
-    const updatedMessages = [
+    const updatedMessages: ChatMessage[] = [
       ...messages,
-      { role: "user" as const, content: value }
+      { role: 'user' as const, content: value }
     ];
 
     setMessages(updatedMessages);
-
     localStorage.setItem('messages', JSON.stringify(updatedMessages));
 
     try {
-      const response = await fetch('http://localhost:3000/memory', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ value: value, messages: updatedMessages.slice(-10) }), // Send only the last 10 messages to the server
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const AuroraResponse = data.AuroraResponse;
-      setMessages(prevMessages => [...prevMessages, { role: "assistant", content: AuroraResponse }]);
-      localStorage.setItem('messages', JSON.stringify([...updatedMessages, { role: "assistant", content: AuroraResponse }]));
-    } catch (error) {
-      console.error('Error creating memory: ', error);
+      const AuroraResponse = await createMemoryApi(value, updatedMessages);
+      setMessages((prevMessages) => [...prevMessages, { role: 'assistant', content: AuroraResponse }]);
+      localStorage.setItem('messages', JSON.stringify([...updatedMessages, { role: 'assistant', content: AuroraResponse }]));
+    } catch (err) {
+      console.error('Error creating memory: ', err);
       setError('Failed to create memory, Please try again later.');
-    }
-    finally {
+    } finally {
       setValue('');
       setIsSaving(false);
     }
-
   };
 
   const retryDailyBreakdown = async () => {
     setIsDailyBreakdownLoading(true);
-    setDailyBreakdownError("");
+    setDailyBreakdownError('');
 
     try {
-      const memories = await fetchDailyBreakdown();
-      setDailyBreakdown(memories);
-    } catch (error) {
-      console.error('Error retrying daily breakdown:', error);
+      const fetchedBreakdown = await fetchDailyBreakdownApi();
+      setDailyBreakdown(fetchedBreakdown);
+    } catch (err) {
+      console.error('Error retrying daily breakdown:', err);
       setDailyBreakdownError('Could not load today\'s breakdown.');
     } finally {
       setIsDailyBreakdownLoading(false);
@@ -328,17 +121,11 @@ function App() {
   useEffect(() => {
     const fetchDueEvents = async () => {
       try {
-        const response = await fetch("http://localhost:3000/memory/upcoming");
-
-        if (!response.ok) {
-          throw new Error(`HTTP error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        setUpComingEvents(data.upcoming);
-      } catch (error) {
-        console.error("Error fetching due events:", error);
-        setUpComingEventsError("Could not load upcoming events");
+        const events = await fetchUpcomingEventsApi();
+        setUpComingEvents(events);
+      } catch (err) {
+        console.error('Error fetching due events:', err);
+        setUpComingEventsError('Could not load upcoming events');
       }
       setUpComingEventsLoading(false);
     };
@@ -356,17 +143,17 @@ function App() {
     const loadDailyBreakdown = async () => {
       setIsDailyBreakdownLoading(true);
       try {
-        const memories = await fetchDailyBreakdown(controller.signal);
+        const fetchedBreakdown = await fetchDailyBreakdownApi(controller.signal);
 
         if (!controller.signal.aborted) {
-          console.log('Daily breakdown:', memories);
-          setDailyBreakdown(memories);
-          setDailyBreakdownError("");
+          console.log('Daily breakdown:', fetchedBreakdown);
+          setDailyBreakdown(fetchedBreakdown);
+          setDailyBreakdownError('');
           setIsDailyBreakdownLoading(false);
         }
-      } catch (error) {
+      } catch (err) {
         if (!controller.signal.aborted) {
-          console.error('Error loading daily breakdown:', error);
+          console.error('Error loading daily breakdown:', err);
           setDailyBreakdownError('Could not load today\'s breakdown.');
           setIsDailyBreakdownLoading(false);
         }
@@ -374,19 +161,17 @@ function App() {
     };
 
     const loadGoals = async () => {
-
       setIsGoalsLoading(true);
       try {
-        const goals = await fetchGoals();
+        const fetchedGoals = await fetchGoalsApi(controller.signal);
         if (!controller.signal.aborted) {
-          setGoals(goals);
-          setGoalsError("");
+          setGoals(fetchedGoals);
+          setGoalsError('');
           setIsGoalsLoading(false);
         }
-
-      } catch (error) {
+      } catch (err) {
         if (!controller.signal.aborted) {
-          console.error('Error loading goals:', error);
+          console.error('Error loading goals:', err);
           setGoalsError('Could not load goals.');
           setIsGoalsLoading(false);
         }
@@ -399,8 +184,7 @@ function App() {
         return;
       }
       setMessages(JSON.parse(storedMessages) || []);
-    }
-
+    };
 
     void loadDailyBreakdown();
     void loadGoals();
@@ -411,62 +195,44 @@ function App() {
     };
   }, []);
 
-
-
   useEffect(() => {
-  const controller = new AbortController();
+    const controller = new AbortController();
 
-  const loadRelevantMemories = async () => {
-    if (relevantMemories.length !== 0) {
-      return;
-    }
-
-    fetchMemories();
-
-    setIsRelevantMemoriesLoading(true);
-    setRelevantMemoriesError("");
-
-    try {
-      const response = await fetch("http://localhost:3000/relevant", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messages: messages.slice(-10),
-        }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+    const loadRelevantMemories = async () => {
+      if (relevantMemories.length !== 0) {
+        return;
       }
 
-      const data = await response.json();
-      console.log("Relevant memories response:", data);
+      fetchMemories();
 
-      if (!controller.signal.aborted) {
-        setRelevantMemories(data.relevant.relevantMemories);
+      setIsRelevantMemoriesLoading(true);
+      setRelevantMemoriesError('');
+
+      try {
+        const fetchedRelevant = await fetchRelevantMemoriesApi(messages, controller.signal);
+        console.log('Relevant memories response:', fetchedRelevant);
+
+        if (!controller.signal.aborted) {
+          setRelevantMemories(fetchedRelevant);
+        }
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          console.error('Error loading relevant memories:', err);
+          setRelevantMemoriesError('Could not load relevant memories.');
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsRelevantMemoriesLoading(false);
+        }
       }
-    } catch (error) {
-      if (!controller.signal.aborted) {
-        console.error("Error loading relevant memories:", error);
-        setRelevantMemoriesError("Could not load relevant memories.");
-      }
-    } finally {
-      if (!controller.signal.aborted) {
-        setIsRelevantMemoriesLoading(false);
-      }
-    }
-  };
+    };
 
-  void loadRelevantMemories();
+    void loadRelevantMemories();
 
-  return () => {
-    controller.abort();
-  };
-}, [messages, memories.length, relevantMemories.length]);
-
+    return () => {
+      controller.abort();
+    };
+  }, [messages, memories.length, relevantMemories.length]);
 
   const formattedDate = new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
@@ -474,193 +240,42 @@ function App() {
     day: 'numeric',
   }).format(new Date());
 
-
-
-
-  return(
+  return (
     <main className="app-shell">
-      <header className="app-header">
-        <div className="brand-mark" aria-hidden="true">A</div>
-        <div>
-          <p className="eyebrow">Personal memory assistant</p>
-          <h1>Aurora</h1>
-        </div>
-        
-        <span className="status-dot">Ready</span>
-
-        <button
-          type="button"
-          className="memories-toggle"
-          aria-label="Open Aurora memories"
-          aria-pressed={isMemoriesOpen}
-          title="Open Aurora memories"
-          onClick={() => {
-            setIsRelevantMemoriesOpen(false);
-            setIsMemoriesOpen((isOpen) => !isOpen);
-            setEditingMemory(null);
-            fetchMemories();
-          }}
-        >
-          <BrainIcon />
-        </button>
-      
-
-            <button
-            type="button"
-            aria-label="Show Memories Aurora find Relevant"
-            title="Show Memories Aurora find Relevant"
-            className='show-relevant-memories-toggle'          
-            aria-pressed={isRelevantMemoriesOpen}
-            onClick={() => {
-              setIsMemoriesOpen(false);
-              setIsRelevantMemoriesOpen((isOpen) => !isOpen);
-            }}
-            >
-            <RelevanceIcon />
-          </button>
-
-      
-      
-      
-      
-      
-      </header>
+      <Header
+        isMemoriesOpen={isMemoriesOpen}
+        isRelevantMemoriesOpen={isRelevantMemoriesOpen}
+        onToggleMemories={() => {
+          setIsRelevantMemoriesOpen(false);
+          setIsMemoriesOpen((isOpen) => !isOpen);
+          setEditingMemory(null);
+          fetchMemories();
+        }}
+        onToggleRelevantMemories={() => {
+          setIsMemoriesOpen(false);
+          setIsRelevantMemoriesOpen((isOpen) => !isOpen);
+        }}
+      />
 
       <div className="app-layout">
         <div className="left-column">
-          <aside className="daily-breakdown" aria-labelledby="daily-breakdown-title">
-          <div className="daily-breakdown-heading">
-            <div>
-              <p className="eyebrow">Your day</p>
-              <h2 id="daily-breakdown-title">Daily Breakdown</h2>
-            </div>
-            <time dateTime={new Date().toISOString().split('T')[0]}>{formattedDate}</time>
-          </div>
-
-          {dailyBreakdownError ? (
-            <div className="section-error" role="alert">
-              <p>{dailyBreakdownError}</p>
-              <button type="button" className="retry-button" onClick={retryDailyBreakdown}>Try again</button>
-            </div>
-          ) : isDailyBreakdownLoading ? (
-            <ul className="daily-breakdown-list daily-breakdown-skeleton" aria-label="Loading daily breakdown">
-              <li className="daily-breakdown-skeleton-item">
-                <span />
-                <span />
-                <span />
-              </li>
-              <li className="daily-breakdown-skeleton-item">
-                <span />
-                <span />
-                <span />
-              </li>
-            </ul>
-          ) : dailyBreakdown.length > 0 ? (
-            <ul className="daily-breakdown-list">
-              {dailyBreakdown.map((memory, index) => (
-                <li className="daily-breakdown-item" key={`${memory.type}-${memory.title}-${index}`}>
-                  <strong>{memory.title}</strong>
-                  <div className="daily-breakdown-meta">
-                    <span>{memory.time ?? 'No time'}</span>
-                    <span>{memory.type}</span>
-                  </div>
-                  <p>{memory.content}</p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="daily-breakdown-empty">Nothing planned for today.</p>
-          )}
-          </aside>
-
-
+          <DailyBreakdownSection
+            dailyBreakdown={dailyBreakdown}
+            isLoading={isDailyBreakdownLoading}
+            error={dailyBreakdownError}
+            formattedDate={formattedDate}
+            onRetry={retryDailyBreakdown}
+          />
         </div>
 
-        <div className="right-column">
-          <aside className="upcoming-events" aria-labelledby="upcoming-events-title">
-            <div className="upcoming-events-heading">
-              <div>
-                <p className="eyebrow">Upcoming</p>
-                <h2 id="upcoming-events-title">Upcoming Events</h2>
-              </div>
-            </div>
-
-            {upComingEventsError ? (
-              <div className="section-error" role="alert">
-                <p>{upComingEventsError}</p>
-              </div>
-            ) : isUpComingEventsLoading ? (
-              <ul className="upcoming-events-list upcoming-events-skeleton" aria-label="Loading upcoming events">
-                <li className="upcoming-events-skeleton-item">
-                  <span />
-                  <span />
-                  <span />
-                </li>
-                <li className="upcoming-events-skeleton-item">
-                  <span />
-                  <span />
-                  <span />
-                </li>
-              </ul>
-            ) : upComingEvents.length > 0 ? (
-              <ul className="upcoming-events-list">
-                {upComingEvents.map((memory, index) => (
-                  <li className="upcoming-events-item" key={`${memory.type}-${memory.title}-${index}`}>
-                    <strong>{memory.title}</strong>
-                    <div className="upcoming-events-meta">
-                      <span>{memory.time ?? 'No time'}</span>
-                      <span>{memory.type}</span>
-                    </div>
-                    <p>{memory.content}</p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="upcoming-events-empty">Nothing to do right now.</p>
-            )}
-          </aside>
-
-
-          <aside className="goals" aria-labelledby="goals-title">
-            <div className="goals-heading">
-              <div>
-                <p className="eyebrow">Goals</p>
-                <h2 id="goals-title">Stay Focus!</h2>
-              </div>
-            </div>
-
-            {goalsError ? (
-              <div className="section-error" role="alert">
-                <p>{goalsError}</p>
-              </div>
-            ) : isGoalsLoading ? (
-              <ul className="goals-list goals-skeleton" aria-label="Loading Goals">
-                <li className="goals-skeleton-item">
-                  <span />
-                  <span />
-                  <span />
-                </li>
-                <li className="goals-skeleton-item">
-                  <span />
-                  <span />
-                  <span />
-                </li>
-              </ul>
-            ) : goals.length > 0 ? (
-              <ul className="goals-list">
-                {goals.map((memory, index) => (
-                  <li className="goals-item" key={`${memory.title}-${index}`}>
-                    <strong>{memory.title}</strong>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="goals-empty">Nothing to do right now.</p>
-            )}
-          </aside>
-        </div>
-
-
+        <RightColumnSections
+          upComingEvents={upComingEvents}
+          isUpcomingLoading={isUpComingEventsLoading}
+          upcomingError={upComingEventsError}
+          goals={goals}
+          isGoalsLoading={isGoalsLoading}
+          goalsError={goalsError}
+        />
 
         <div className="main-content">
           {isMemoriesOpen ? (
@@ -677,11 +292,11 @@ function App() {
                 <MemoryEditor
                   memory={editingMemory}
                   onSave={(updatedMemory, infoMessage) => {
-                    setMemories((current) => current.map((memory) => memory.id === updatedMemory.id ? updatedMemory : memory));
+                    setMemories((current) => current.map((mem) => mem.id === updatedMemory.id ? updatedMemory : mem));
                     setEditingMemory(null);
                     if (infoMessage) {
                       setMessages((prevMessages) => {
-                        const updated = [...prevMessages, { role: "info" as const, content: infoMessage }];
+                        const updated = [...prevMessages, { role: 'info' as const, content: infoMessage }];
                         localStorage.setItem('messages', JSON.stringify(updated));
                         return updated;
                       });
@@ -691,16 +306,16 @@ function App() {
                 />
               ) : memories.length > 0 ? (
                 <ul className="memory-list">
-                  {memories.map((memory) => (
+                  {memories.map((mem) => (
                     <MemoryItem
-                      key={memory.id}
-                      memory={memory}
+                      key={mem.id}
+                      memory={mem}
                       onEdit={setEditingMemory}
                       onDelete={(id, infoMessage) => {
                         setMemories((current) => current.filter((m) => m.id !== id));
                         if (infoMessage) {
                           setMessages((prevMessages) => {
-                            const updated = [...prevMessages, { role: "info" as const, content: infoMessage }];
+                            const updated = [...prevMessages, { role: 'info' as const, content: infoMessage }];
                             localStorage.setItem('messages', JSON.stringify(updated));
                             return updated;
                           });
@@ -734,55 +349,20 @@ function App() {
                 ) : relevantMemories.length === 0 ? (
                   <p className="memories-empty">No relevant memories found.</p>
                 ) : (                
-                <MemoryList memories={memories} relevantMemories={relevantMemories} />
+                  <MemoryList memories={memories} relevantMemories={relevantMemories} />
                 )
               }
             </section>
           ) : (
-            <>
-              <section className="conversation" aria-live="polite">
-                {messages.length > 0 ? (
-                  <div className="conversation-messages">
-                    {messages.map((msg, index) => {
-                      if (msg.role === 'user') {
-                        return (
-                          <div key={index} className="user-message-bubble">
-                            {msg.content}
-                          </div>
-                        );
-                      }
-                      if (msg.role === 'info') {
-                        return (
-                          <div key={index} className="info-message-bubble">
-                            <span className="info-message-tag">Info</span>
-                            {msg.content}
-                          </div>
-                        );
-                      }
-                      return (
-                        <p key={index} className="aurora-response-bubble">
-                          {msg.content}
-                        </p>
-                      );
-                    })}
-                    <div ref={conversationEndRef} />
-                  </div>
-                ) : (
-                  <div className="conversation-empty">
-                    <p className="eyebrow">A clear place to begin</p>
-                    <h2>Tell Aurora what you want to remember.</h2>
-                  </div>
-                )}
-              </section>
-
-              <div className="composer-wrap">
-                <form className="composer" onSubmit={createMemory}>
-                  <input aria-label="Message Aurora" type="text" placeholder="e.g. Call Mum tomorrow at 6pm" value={value} onChange={(e) => setValue(e.target.value)} disabled={isSaving}/>
-                  <button type="submit" aria-label="Send message" disabled={isSaving}>{isSaving ? 'Saving...' : 'Send'} {!isSaving && <span aria-hidden="true">&#8594;</span>}</button>
-                </form>
-                {error && <p>{error}</p>}
-              </div>
-            </>
+            <ConversationSection
+              messages={messages}
+              value={value}
+              isSaving={isSaving}
+              error={error}
+              conversationEndRef={conversationEndRef}
+              onValueChange={setValue}
+              onSubmit={createMemory}
+            />
           )}
         </div>
       </div>
