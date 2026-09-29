@@ -1,8 +1,16 @@
+<<<<<<< HEAD
 🏗️ Architecture Overview
 
 Based on the repository metadata, configuration files, and project layout (zj6pxpr5hd-creator/aurora_prot), Aurora is structured as a modern full-stack web application prototype built around an AI assistant paradigm. 
 
 Project Layout & Tech Stack
+=======
+*** 🏗️ Architecture Overview ***
+
+Based on the repository metadata, configuration files, and project layout (zj6pxpr5hd-creator/aurora_prot), Aurora is structured as a modern full-stack web application prototype built around an AI assistant paradigm. 
+
+* Project Layout & Tech Stack 
+>>>>>>> jules-test
 Client / Frontend (src/, index.html, vite.config.ts, tsconfig.app.json): Powered by Vite and TypeScript, using a component-driven directory layout typical of React/Vue single-page applications. It handles UI state, interactive user dashboards, and the conversational or control interface for the AI assistant.
 Server / Backend (server/): A Node.js/TypeScript backend runtime layer responsible for handling API routing, session coordination, tool execution contexts, and integration endpoints.
 Agentic Workflows (.github/agents/, AGENTS.md): Configured with repository-level documentation and agent instructions (AGENTS.md), pointing to an automated AI-assisted development workflow or multi-agent orchestration setup (often compatible with frameworks like GitHub Copilot Workspace, custom LLM tool-calling loops, or Model Context Protocol [MCP]).
@@ -15,7 +23,12 @@ API Communication: The client communicates asynchronously with the server/ modul
 AI Reasoning & Tool Routing: The server orchestrates LLM queries, utilizing agent configurations defined in .github/agents/ to determine the correct context, environment actions, or tool calls.
 Environment Execution: Aurora acts upon the local/remote technological environment (file systems, shell commands, or external APIs) to execute tasks in favor of the user and streams the results back to the client interface.
 
+<<<<<<< HEAD
 *** 🐛 Bugs & Edge Cases ***
+=======
+***
+🐛 Bugs & Edge Cases
+>>>>>>> jules-test
 
 Unbounded Context Windows & Memory Leak Risks:
 Risk: In prototype AI assistants, conversation and execution logs often grow indefinitely in client-side state without sliding-window truncation or pagination, which will cause memory degradation and heavy UI lag over long sessions.
