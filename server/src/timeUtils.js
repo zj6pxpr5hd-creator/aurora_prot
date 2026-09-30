@@ -135,6 +135,50 @@ export function calculateMinutesUntil(memoryDate, memoryTime, nowInfo) {
  *   created_at: string
  * }>} Array of event memory objects scheduled within the next hour.
  */
+// Reusable prepared statements to prevent SQL compilation overhead on every database query
+const stmtGetUpcomingEvents = db.prepare(`
+  SELECT *
+  FROM memories
+  WHERE type IN ('event')
+    AND date >= ? AND date <= ?
+    AND date IS NOT NULL AND date != ''
+    AND time IS NOT NULL AND time != ''
+    AND (date || ' ' || (CASE WHEN length(time) = 5 THEN time || ':00' ELSE time END)) >= ?
+    AND (date || ' ' || (CASE WHEN length(time) = 5 THEN time || ':00' ELSE time END)) <= ?
+  ORDER BY date ASC, time ASC
+`);
+
+const stmtGetUndatedEventsAndTasks = db.prepare(`
+  SELECT *
+  FROM memories
+  WHERE type IN ('event', 'task')
+    AND (
+      date IS NULL OR date = ''
+      OR time IS NULL OR time = ''
+    )
+  ORDER BY created_at ASC
+`);
+
+const stmtGetUserGoals = db.prepare(`
+  SELECT *
+  FROM memories
+  WHERE type IN ('goal')
+  ORDER BY created_at ASC
+`);
+
+const stmtGetMemoriesForToday = db.prepare(`
+  SELECT *
+  FROM memories
+  WHERE date = ?
+  ORDER BY time ASC, created_at ASC
+`);
+
+const stmtGetAllMemories = db.prepare(`
+  SELECT *
+  FROM memories
+  ORDER BY created_at DESC
+`);
+
 export function getUpcomingEventsDB(nowInfo) {
   const currentLocalDt = nowInfo.datetime;
   const [dYear, dMonth, dDay] = nowInfo.date.split('-').map(Number);
@@ -151,18 +195,12 @@ export function getUpcomingEventsDB(nowInfo) {
 
   const oneHourLocalDt = `${yearOneHour}-${monthOneHour}-${dayOneHour} ${hourOneHour}:${minOneHour}:${secOneHour}`;
 
-  const memories = db.prepare(`
-    SELECT *
-    FROM memories
-    WHERE type IN ('event')
-      AND date IS NOT NULL AND date != ''
-      AND time IS NOT NULL AND time != ''
-      AND (date || ' ' || (CASE WHEN length(time) = 5 THEN time || ':00' ELSE time END)) >= ?
-      AND (date || ' ' || (CASE WHEN length(time) = 5 THEN time || ':00' ELSE time END)) <= ?
-    ORDER BY date ASC, time ASC
-  `).all(currentLocalDt, oneHourLocalDt);
+  // Performance Optimization: Restrict by date range (startDate <= date <= endDate)
+  // so SQLite uses idx_memories_date_time index instead of full table scanning.
+  const startDate = nowInfo.date;
+  const endDate = oneHourLocalDt.split(' ')[0];
 
-  return memories;
+  return stmtGetUpcomingEvents.all(startDate, endDate, currentLocalDt, oneHourLocalDt);
 }
 
 /**
@@ -179,17 +217,7 @@ export function getUpcomingEventsDB(nowInfo) {
  * }>} Array of undated event and task memory objects.
  */
 export function getUndatedEventsAndTasksDB() {
-  const memories = db.prepare(`
-    SELECT *
-    FROM memories
-    WHERE type IN ('event', 'task')
-      AND (
-        date IS NULL OR date = ''
-        OR time IS NULL OR time = ''
-      )
-    ORDER BY created_at ASC
-  `).all();
-  return memories;
+  return stmtGetUndatedEventsAndTasks.all();
 }
 
 /**
@@ -206,13 +234,7 @@ export function getUndatedEventsAndTasksDB() {
  * }>} Array of goal memory objects.
  */
 export function getUserGoalsDB() {
-  const goals = db.prepare(`
-    SELECT *
-    FROM memories
-    WHERE type IN ('goal')
-    ORDER BY created_at ASC
-  `).all();
-  return goals;
+  return stmtGetUserGoals.all();
 }
 
 /**
@@ -232,13 +254,7 @@ export function getUserGoalsDB() {
  * }>} Array of memory objects scheduled for today.
  */
 export function getMemoriesForTodayDB(nowInfo) {
-  const memories = db.prepare(`
-    SELECT *
-    FROM memories
-    WHERE date = ?
-    ORDER BY time ASC, created_at ASC
-  `).all(nowInfo.date);
-  return memories;
+  return stmtGetMemoriesForToday.all(nowInfo.date);
 }
 
 /**
@@ -255,10 +271,5 @@ export function getMemoriesForTodayDB(nowInfo) {
  * }>} Array of all memory objects ordered by creation timestamp.
  */
 export function getAllMemoriesDB() {
-  const memories = db.prepare(`
-    SELECT *
-    FROM memories
-    ORDER BY created_at DESC
-  `).all();
-  return memories;
+  return stmtGetAllMemories.all();
 }
