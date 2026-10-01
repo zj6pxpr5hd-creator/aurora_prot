@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { BrainIcon, RelevanceIcon } from './Icons';
 
 interface HeaderProps {
@@ -9,13 +10,15 @@ interface HeaderProps {
 
 /**
  * Top navigation header component for Aurora UI.
+ * Performance Optimization: Wrapped with React.memo to prevent header re-renders
+ * during frequent parent state updates (such as user typing in composer input).
  *
  * @param isMemoriesOpen Whether the general memories view panel is active.
  * @param isRelevantMemoriesOpen Whether the relevant memories view panel is active.
  * @param onToggleMemories Callback handler to toggle general memories view.
  * @param onToggleRelevantMemories Callback handler to toggle relevant memories view.
  */
-export function Header({
+export const Header = memo(function Header({
   isMemoriesOpen,
   isRelevantMemoriesOpen,
   onToggleMemories,
@@ -54,4 +57,4 @@ export function Header({
       </button>
     </header>
   );
-}
+});
