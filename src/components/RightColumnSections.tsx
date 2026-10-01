@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { UpcomingEventItem, GoalItem } from '../types/memory';
 
 interface RightColumnSectionsProps {
@@ -11,6 +12,8 @@ interface RightColumnSectionsProps {
 
 /**
  * Renders the right sidebar column containing Upcoming Events and Goals sections.
+ * Performance Optimization: Wrapped with React.memo to prevent unnecessary re-renders
+ * during unrelated parent component state updates (such as input text composer updates).
  *
  * @param upComingEvents List of upcoming event memory items.
  * @param isUpcomingLoading Loading status for upcoming events.
@@ -19,7 +22,7 @@ interface RightColumnSectionsProps {
  * @param isGoalsLoading Loading status for goals.
  * @param goalsError Error string for goals fetch.
  */
-export function RightColumnSections({
+export const RightColumnSections = memo(function RightColumnSections({
   upComingEvents,
   isUpcomingLoading,
   upcomingError,
@@ -111,4 +114,4 @@ export function RightColumnSections({
       </aside>
     </div>
   );
-}
+});

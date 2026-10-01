@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { DailyBreakdownItem } from '../types/memory';
 
 interface DailyBreakdownSectionProps {
@@ -10,6 +11,8 @@ interface DailyBreakdownSectionProps {
 
 /**
  * Renders the daily breakdown sidebar panel.
+ * Performance Optimization: Wrapped with React.memo to skip re-renders when parent App state
+ * (such as composer input text value) changes, preserving DOM stability for static schedule items.
  *
  * @param dailyBreakdown Array of memories scheduled for today.
  * @param isLoading Loading indicator status.
@@ -17,7 +20,7 @@ interface DailyBreakdownSectionProps {
  * @param formattedDate Human readable formatted date string.
  * @param onRetry Callback handler to retry fetching today's breakdown.
  */
-export function DailyBreakdownSection({
+export const DailyBreakdownSection = memo(function DailyBreakdownSection({
   dailyBreakdown,
   isLoading,
   error,
@@ -70,4 +73,4 @@ export function DailyBreakdownSection({
       )}
     </aside>
   );
-}
+});

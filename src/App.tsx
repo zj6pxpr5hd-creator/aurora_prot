@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import './App.css';
 import type { Memory, ChatMessage, DailyBreakdownItem, UpcomingEventItem, GoalItem, RelevantMemory } from './types/memory';
 import {
@@ -103,7 +103,9 @@ function App() {
     }
   };
 
-  const retryDailyBreakdown = async () => {
+  // Performance Optimization: Wrap handler with useCallback to maintain reference equality
+  // so DailyBreakdownSection (wrapped in React.memo) does not re-render on parent state changes.
+  const retryDailyBreakdown = useCallback(async () => {
     setIsDailyBreakdownLoading(true);
     setDailyBreakdownError('');
 
@@ -116,7 +118,7 @@ function App() {
     } finally {
       setIsDailyBreakdownLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const fetchDueEvents = async () => {
@@ -234,27 +236,37 @@ function App() {
     };
   }, [messages, memories.length, relevantMemories.length]);
 
-  const formattedDate = new Intl.DateTimeFormat(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  }).format(new Date());
+  // Performance Optimization: Memoize formattedDate string to prevent re-constructing
+  // Intl.DateTimeFormat and re-formatting on every single input typing re-render.
+  const formattedDate = useMemo(() => {
+    return new Intl.DateTimeFormat(undefined, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    }).format(new Date());
+  }, []);
+
+  // Performance Optimization: useCallback handlers for Header to ensure props pass shallow equality
+  // check when Header is memoized with React.memo.
+  const handleToggleMemories = useCallback(() => {
+    setIsRelevantMemoriesOpen(false);
+    setIsMemoriesOpen((isOpen) => !isOpen);
+    setEditingMemory(null);
+    fetchMemories();
+  }, []);
+
+  const handleToggleRelevantMemories = useCallback(() => {
+    setIsMemoriesOpen(false);
+    setIsRelevantMemoriesOpen((isOpen) => !isOpen);
+  }, []);
 
   return (
     <main className="app-shell">
       <Header
         isMemoriesOpen={isMemoriesOpen}
         isRelevantMemoriesOpen={isRelevantMemoriesOpen}
-        onToggleMemories={() => {
-          setIsRelevantMemoriesOpen(false);
-          setIsMemoriesOpen((isOpen) => !isOpen);
-          setEditingMemory(null);
-          fetchMemories();
-        }}
-        onToggleRelevantMemories={() => {
-          setIsMemoriesOpen(false);
-          setIsRelevantMemoriesOpen((isOpen) => !isOpen);
-        }}
+        onToggleMemories={handleToggleMemories}
+        onToggleRelevantMemories={handleToggleRelevantMemories}
       />
 
       <div className="app-layout">
