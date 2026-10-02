@@ -33,11 +33,22 @@ export function MemoryEditor({ memory, onSave, onCancel }: MemoryEditorProps) {
     }
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLFormElement>) => {
+    if (event.key === 'Escape') {
+      onCancel();
+    }
+  };
+
   return (
-    <form className="memory-editor" onSubmit={handleSubmit}>
+    <form
+      className="memory-editor"
+      onSubmit={handleSubmit}
+      onKeyDown={handleKeyDown}
+      aria-label={`Edit memory: ${memory.title}`}
+    >
       <label>
         Title
-        <input value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} required />
+        <input autoFocus value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} required />
       </label>
       <label>
         Content
