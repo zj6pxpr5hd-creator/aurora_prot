@@ -10,6 +10,27 @@ export const BrainIcon = () => (
 );
 
 /**
+ * Spinner icon component used for loading and pending states.
+ */
+export const SpinnerIcon = () => (
+  <svg
+    className="spinner-icon"
+    viewBox="0 0 24 24"
+    width="16"
+    height="16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <circle cx="12" cy="12" r="9" strokeOpacity="0.3" />
+    <path d="M12 3a9 9 0 0 1 9 9" />
+  </svg>
+);
+
+/**
  * Relevance icon component used for relevant memories toggle.
  */
 export const RelevanceIcon = () => (

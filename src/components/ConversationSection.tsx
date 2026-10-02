@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import type { RefObject } from 'react';
 import type { ChatMessage } from '../types/memory';
+import { SpinnerIcon } from './Icons';
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -105,8 +106,23 @@ export const ConversationSection = memo(function ConversationSection({
             onChange={(e) => onValueChange(e.target.value)}
             disabled={isSaving}
           />
-          <button type="submit" aria-label="Send message" disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Send'} {!isSaving && <span aria-hidden="true">&#8594;</span>}
+          <button
+            type="submit"
+            aria-label={isSaving ? 'Saving message...' : 'Send message'}
+            aria-busy={isSaving}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <>
+                <SpinnerIcon />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <span>Send</span>
+                <span aria-hidden="true">&#8594;</span>
+              </>
+            )}
           </button>
         </form>
         {error && <p>{error}</p>}
