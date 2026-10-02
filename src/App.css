@@ -541,6 +541,9 @@ p {
 	.daily-breakdown-skeleton-item span {
 		animation: none;
 	}
+	.spinner-icon {
+		animation-duration: 2s;
+	}
 }
 
 .main-content {
@@ -964,6 +967,10 @@ p {
 }
 
 .composer button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
 	border: 0;
 	border-radius: 12px;
 	padding: 11px 14px;
@@ -973,6 +980,20 @@ p {
 	font: inherit;
 	font-size: 13px;
 	font-weight: 700;
+}
+
+.spinner-icon {
+	animation: spin 0.8s linear infinite;
+	flex-shrink: 0;
+}
+
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 .composer button:hover {
