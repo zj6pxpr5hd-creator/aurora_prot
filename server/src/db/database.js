@@ -1,11 +1,18 @@
 import Database from "better-sqlite3";
 import path from "path";
+import fs from "fs"; // Added to handle directory creation
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const dbPath = path.join(__dirname, "aurora.db");
+const dbPath = process.env.DB_FILE || path.join(__dirname, "aurora.db");
+
+// 2. Ensure the parent directory exists before opening the database
+const dbDir = path.dirname(dbPath);
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
 
 const db = new Database(dbPath);
 
