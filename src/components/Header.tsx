@@ -37,9 +37,9 @@ export const Header = memo(function Header({
       <button
         type="button"
         className="memories-toggle"
-        aria-label="Open Aurora memories"
+        aria-label={isMemoriesOpen ? 'Close Aurora memories' : 'Open Aurora memories'}
         aria-pressed={isMemoriesOpen}
-        title="Open Aurora memories"
+        title={isMemoriesOpen ? 'Close Aurora memories' : 'Open Aurora memories'}
         onClick={onToggleMemories}
       >
         <BrainIcon />
@@ -47,10 +47,10 @@ export const Header = memo(function Header({
 
       <button
         type="button"
-        aria-label="Show Memories Aurora find Relevant"
-        title="Show Memories Aurora find Relevant"
         className="show-relevant-memories-toggle"
+        aria-label={isRelevantMemoriesOpen ? 'Close relevant memories' : 'Show relevant memories'}
         aria-pressed={isRelevantMemoriesOpen}
+        title={isRelevantMemoriesOpen ? 'Close relevant memories' : 'Show relevant memories'}
         onClick={onToggleRelevantMemories}
       >
         <RelevanceIcon />

@@ -36,8 +36,23 @@ export function MemoryItem({ memory, onEdit, onDelete }: MemoryItemProps) {
           <h2>{memory.title}</h2>
         </div>
         <div className="memory-actions">
-          <button type="button" onClick={() => onEdit(memory)}>Edit</button>
-          <button type="button" className="memory-delete-button" onClick={() => setIsConfirmingDelete(true)}>Delete</button>
+          <button
+            type="button"
+            aria-label={`Edit memory: ${memory.title}`}
+            title={`Edit memory: ${memory.title}`}
+            onClick={() => onEdit(memory)}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            className="memory-delete-button"
+            aria-label={`Delete memory: ${memory.title}`}
+            title={`Delete memory: ${memory.title}`}
+            onClick={() => setIsConfirmingDelete(true)}
+          >
+            Delete
+          </button>
         </div>
       </div>
       <p>{memory.content}</p>
@@ -50,8 +65,20 @@ export function MemoryItem({ memory, onEdit, onDelete }: MemoryItemProps) {
       {isConfirmingDelete && (
         <div className="memory-delete-confirmation" role="alert">
           <span>Delete this memory?</span>
-          <button type="button" onClick={handleDelete}>Confirm</button>
-          <button type="button" onClick={() => setIsConfirmingDelete(false)}>Cancel</button>
+          <button
+            type="button"
+            aria-label={`Confirm deletion of ${memory.title}`}
+            onClick={handleDelete}
+          >
+            Confirm
+          </button>
+          <button
+            type="button"
+            aria-label={`Cancel deletion of ${memory.title}`}
+            onClick={() => setIsConfirmingDelete(false)}
+          >
+            Cancel
+          </button>
         </div>
       )}
     </li>
