@@ -1,51 +1,46 @@
 # AGENTS.md
 
 ## 1. Project Purpose & Mission
-Aurora is an intelligent, context-aware AI assistant and memory-management system designed to help users structure their days, track goals, record personal memories, and interact via an adaptive conversation interface. The overarching goal of the system is to bridge structured personal data (daily breakdowns, upcoming events, and long-term goals) with dynamic, LLM-powered conversational processing to surface relevant insights precisely when needed.
+Aurora is an AI-powered personal assistant and context-management web application designed to help users organize their daily lives, track goals, manage upcoming events, and maintain a persistent memory store. The overarching goal of the system is to provide a seamless, conversational interface backed by intelligent context-retrieval mechanisms that surface relevant personal insights precisely when needed.
 
 ## 2. General Architecture & Tech Stack
-- **Architecture Layout:** Monorepo containing a modern Single Page Application (SPA) frontend and a dedicated Node.js/Express backend server communicating via REST API interfaces.
-- **Frontend Tech Stack:** 
-  - React 18+ with TypeScript (`src/App.tsx`, Vite build tool)
-  - CSS for styling (`src/App.css`, `src/index.css`)
-- **Backend Tech Stack:** 
-  - Node.js with Express (`server/app.js`)
-  - SQLite/Database integration layer (`server/src/db/database.js`)
-  - Google Gemini API integration for LLM agent processing (`server/src/services/geminiService.js`)
-- **Package Management:** `pnpm` (utilized across root and server directories)
-- **Environment Requirements:** Node.js runtime, configured environment variables for API keys (e.g., Gemini API keys).
+- **Architecture:** Monorepository containing a decoupled client-server setup consisting of a Single Page Application (SPA) frontend and a Node.js/Express backend service.
+- **Frontend Framework:** React 18+ with TypeScript, Vite, and custom CSS styling.
+- **Backend Framework:** Node.js with Express, structured around modular routing and service layers.
+- **Database:** Local database storage managed via custom database service layers (`server/src/db/database.js`).
+- **AI/LLM Integration:** Google Gemini integration via `geminiService.js` for natural language processing, memory extraction, and context reasoning.
+- **Environment Requirements:** Node.js (v18+ recommended), PNPM or NPM for dependency management.
 
 ## 3. Data Flow
-1. **User Trigger:** The user interacts with the UI (`App.tsx`), either by typing a message/memory into the `ConversationSection` or by navigating through views like daily breakdowns and memory editors.
-2. **Frontend Request:** The frontend uses wrapper services (`src/services/api.ts`) to execute asynchronous HTTP requests (GET/POST) targeting the Express backend.
-3. **Backend Parsing & Routing:** 
-   - Express routes (`server/src/routes/*.js`) intercept requests, passing payloads to relevant services (`server/src/services/*.js`).
-   - Context is injected via utility and context managers (`server/src/context.js`, `server/src/timeUtils.js`).
-4. **LLM/Agent Processing:** If conversational memory creation or relevance matching is triggered, the backend queries the Google Gemini API (`server/src/services/geminiService.js`) with the relevant prompt payload.
-5. **Persistence & Return:** Data is written to or read from the SQLite database (`server/src/db/database.js`), and JSON responses are returned up through the API layer to update frontend state (`messages`, `memories`, `dailyBreakdown`, etc.).
+1. **User Trigger:** The user interacts with the React frontend (e.g., typing a message into the `ConversationSection` or modifying memories).
+2. **API Request:** The client dispatches asynchronous HTTP requests via `src/services/api.ts` to backend Express endpoints (`server/src/routes/`).
+3. **Webhook & Route Parsing:** Express routes intercept the payload, validate parameters against defined schemas (`server/src/schemas/memorySchemas.js`), and delegate business logic to corresponding services (`server/src/services/`).
+4. **Agent & LLM Processing:** Services interact with the local database or invoke the Gemini API (`geminiService.js`) to generate responses, extract structural insights, or compute relevant memories.
+5. **Response & Rendering:** The backend serializes the processed data back to JSON. The frontend updates its component state, rendering changes dynamically across views (Conversation, Daily Breakdown, Goals, and Memory management views).
 
 ## 4. External APIs & Integrations
-- **Google Gemini API:** 
-  - Purpose: Powers intelligent memory extraction, conversational responses, and relevant memory surfacing.
-  - Authentication: Requires API key configuration via secure environment variables injected into the backend runtime environment.
+- **Google Gemini API:** Utilized for advanced text generation, contextual analysis, and memory relevance matching.
+  - **Authentication:** Requires a secure API key supplied via environment variables (`GEMINI_API_KEY`) loaded on the server side.
 - **Internal REST Endpoints:**
-  - `/api/context`: Context management routes
-  - `/api/goals`: Goal tracking and retrieval
-  - `/api/memory`: Memory CRUD operations
-  - `/api/relevant`: Contextual/relevant memory matching
+  - `/api/context`: Contextual data management.
+  - `/api/goals`: Goal tracking operations.
+  - `/api/memory`: Memory creation, updating, and retrieval.
+  - `/api/relevant`: Dynamic context-matching for active conversation states.
+  - **Authentication / Headers:** Standard `Content-Type: application/json` headers; API routes assume internal trust boundaries within the containerized or local deployment setup.
 
 ## 5. Agent Overview & Operating Guidelines
 - **Existing Agents:**
-  - `aurora-frontend-designer`: Specialized agent situated in `.github/agents/aurora-frontend-designer.agent.md` tasked with managing UI/UX components, CSS styles, and React state architectures.
-- **Rules of Engagement:**
-  - **Branching Strategy:** All modifications, bug fixes, or feature additions must be executed and committed exclusively on designated development branches (`dev/*` or feature branches). Never commit directly to production/main branches.
-  - **Commit Message Format:** Follow conventional commits (e.g., `feat(ui): add memory filter`, `fix(server): resolve db connection leak`).
-  - **File-Writing Protocols:** Always respect existing TypeScript typings (`src/types/memory.ts`) and maintain strict separation of concerns between frontend presentation components and backend services. Do not hardcode secrets or API keys.
+  - `aurora-frontend-designer` (`.github/agents/aurora-frontend-designer.agent.md`): Specialized agent responsible for user interface design patterns, component styling, and frontend layout structures.
+- **Rules of Engagement for AI Agents:**
+  - **Branching Strategy:** Always execute changes on designated development branches. Never push directly to production or main branches without explicit verification and authorization.
+  - **Commit Messages:** Use clear, conventional commit formats (e.g., `feat(ui): add new memory item component`, `fix(server): resolve null pointer in context service`).
+  - **File-Writing Protocols:** Always verify existing types, schema validations, and dependencies before modifying files. Ensure TypeScript types (`src/types/memory.ts`) remain synchronized with backend schemas.
 
 ## 6. Security & Guardrails
-- **Command Whitelisting:** Autonomous agents are restricted to running safe project scripts (`pnpm install`, `pnpm dev`, `pnpm build`, `pnpm lint`). Destructive shell executions (e.g., recursive deletions, unauthorized global system modifications) are strictly prohibited.
-- **Environment Hardening:** Sensitive credentials (API keys, database files) must never be committed to version control. Ensure `.env` configurations are respected and ignored by git.
-- **Permission Boundaries:** Agents may read and modify application source code, configuration files, and documentation within this repository, but must not access external networks or systems outside the defined API integration surface.
+- **Command Whitelisting:** Agents are restricted to running safe package manager scripts (`pnpm build`, `pnpm test`, `npm run dev`), linting tools (`eslint`), and type-checking scripts.
+- **Shell Execution Restrictions:** Direct destructive shell commands (e.g., `rm -rf`, raw database drops, or unauthorized network requests outside configured service bindings) are strictly prohibited.
+- **Environment Hardening:** Secret keys, API tokens (such as Gemini API keys), and database credentials must never be hardcoded into source files and must only be read from protected environment configuration files (`.env`).
+- **Input Validation:** All incoming payloads on the server side must pass schema validation (`server/src/schemas/memorySchemas.js`) before interacting with database layers or external LLM services.
 
 ## 7. File Map
 ```text
@@ -53,13 +48,6 @@ Aurora is an intelligent, context-aware AI assistant and memory-management syste
 ├── .github/
 │   └── agents/
 │       └── aurora-frontend-designer.agent.md
-├── .gitignore
-├── AGENTS.md
-├── README.md
-├── eslint.config.js
-├── index.html
-├── package.json
-├── pnpm-lock.yaml
 ├── public/
 │   ├── favicon.svg
 │   └── icons.svg
@@ -95,13 +83,20 @@ Aurora is an intelligent, context-aware AI assistant and memory-management syste
 │   │   ├── Icons.tsx
 │   │   ├── MemoryEditor.tsx
 │   │   ├── MemoryItem.tsx
-│   │   └── RightColumnSections.tsx
+│   │   ├── RightColumnSections.tsx
 │   ├── index.css
 │   ├── main.tsx
 │   ├── services/
 │   │   └── api.ts
 │   └── types/
 │       └── memory.ts
+├── .gitignore
+├── AGENTS.md
+├── README.md
+├── eslint.config.js
+├── index.html
+├── package.json
+├── pnpm-lock.yaml
 ├── tsconfig.app.json
 ├── tsconfig.json
 ├── tsconfig.node.json
