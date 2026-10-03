@@ -10,6 +10,46 @@ import { extractMemories, getAuroraResponse } from '../services/geminiService.js
 
 const router = Router();
 
+// Performance Optimization: Reusable pre-compiled SQL statements at top-level scope.
+// Prevents SQL statement compilation overhead (sqlite3_prepare_v2) on every incoming API request.
+const stmtInsertMemory = db.prepare(`
+  INSERT INTO memories (type, title, content, date, time)
+  VALUES (?, ?, ?, ?, ?)
+`);
+
+const stmtSelectMemoryById = db.prepare(`
+  SELECT * FROM memories WHERE id = ?
+`);
+
+const stmtDeleteMemoryById = db.prepare(`
+  DELETE FROM memories WHERE id = ?
+`);
+
+const stmtDeleteAllMemories = db.prepare(`
+  DELETE FROM memories
+`);
+
+const stmtUpdateMemoryById = db.prepare(`
+  UPDATE memories
+  SET type = ?, title = ?, content = ?, date = ?, time = ?
+  WHERE id = ?
+`);
+
+// Performance Optimization: SQLite Transaction for Batch Inserts.
+// Wraps multi-memory insertions in a single transaction (BEGIN ... COMMIT), reducing disk sync
+// overhead from O(N fsyncs) to O(1 fsync) when multiple memories are extracted from a message.
+const insertMemoriesTx = db.transaction((memories) => {
+  for (const memory of memories) {
+    stmtInsertMemory.run(
+      memory.type,
+      memory.title,
+      memory.content,
+      memory.date,
+      memory.time
+    );
+  }
+});
+
 /**
  * POST /memory
  * Processes incoming user message, extracts memories via Gemini API, saves them to DB,
@@ -25,18 +65,7 @@ router.post('/memory', async (req, res) => {
   try {
     const result = await extractMemories(value, nowInfo);
 
-    for (const memory of result.memories) {
-      db.prepare(`
-        INSERT INTO memories (type, title, content, date, time)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(
-        memory.type,
-        memory.title,
-        memory.content,
-        memory.date,
-        memory.time
-      );
-    }
+    insertMemoriesTx(result.memories);
 
     const AuroraResponse = await getAuroraResponse(messages);
 
@@ -106,7 +135,7 @@ router.get('/memory/upcoming', async (req, res) => {
 router.delete('/memory', async (req, res) => {
   console.log('Recieved request at /memory DELETE');
   try {
-    db.prepare('DELETE FROM memories').run();
+    stmtDeleteAllMemories.run();
     res.json({ message: 'All memories deleted' });
 
   } catch (error) {
@@ -123,14 +152,14 @@ router.delete('/memory/:id', async (req, res) => {
   console.log('Recieved request at /memory/:id DELETE');
   try {
     const { id } = req.params;
-    const memory = db.prepare('SELECT * FROM memories WHERE id = ?').get(id);
+    const memory = stmtSelectMemoryById.get(id);
     console.log('Memory to delete:', memory);
     if (!memory) {
       res.status(404).json({ error: 'Memory not found' });
       return;
     }
 
-    db.prepare('DELETE FROM memories WHERE id = ?').run(id);
+    stmtDeleteMemoryById.run(id);
 
     let details = memory.title;
     if (memory.date || memory.time) {
@@ -164,7 +193,7 @@ router.get('/memory/:id', async (req, res) => {
   console.log('Recieved request at /memory/:id GET');
   try {
     const { id } = req.params;
-    const memory = db.prepare('SELECT * FROM memories WHERE id = ?').get(id);
+    const memory = stmtSelectMemoryById.get(id);
     if (!memory) {
       res.status(404).json({ error: 'Memory not found' });
       return;
@@ -187,19 +216,15 @@ router.patch('/memory/:id', async (req, res) => {
     const { id } = req.params;
     const { type, title, content, date, time } = req.body;
 
-    const oldMemory = db.prepare('SELECT * FROM memories WHERE id = ?').get(id);
+    const oldMemory = stmtSelectMemoryById.get(id);
     if (!oldMemory) {
       res.status(404).json({ error: 'Memory not found' });
       return;
     }
 
-    db.prepare(`
-      UPDATE memories
-      SET type = ?, title = ?, content = ?, date = ?, time = ?
-      WHERE id = ?
-    `).run(type, title, content, date, time, id);
+    stmtUpdateMemoryById.run(type, title, content, date, time, id);
 
-    const updatedMemory = db.prepare('SELECT * FROM memories WHERE id = ?').get(id);
+    const updatedMemory = stmtSelectMemoryById.get(id);
 
     const changes = [];
     if (oldMemory.title !== updatedMemory.title) {
