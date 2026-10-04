@@ -13,7 +13,7 @@
 # STAGE 1: Build the React / Vite Frontend
 # ==========================================
 # creates a new image based on the official Node.js 20 image with Alpine Linux
-FROM node:20-alpine AS frontend-builder 
+FROM node:22-alpine AS frontend-builder 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
@@ -32,7 +32,7 @@ RUN pnpm build
 # STAGE 2: Prepare Backend Dependencies
 # ==========================================
 # This stage is needed to install production dependencies for the backend (Express server) without including devDependencies.
-FROM node:20-alpine AS backend-builder
+FROM node:22-alpine AS backend-builder
 # Install Python, Make, and G++ required to compile better-sqlite3 native bindings
 RUN apk add --no-cache python3 make g++
 RUN corepack enable && corepack prepare pnpm@latest --activate
@@ -48,7 +48,7 @@ RUN pnpm install --filter ./server... --prod --frozen-lockfile
 # ==========================================
 # STAGE 3: Production Runner Container
 # ==========================================
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
