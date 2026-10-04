@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 3000;
-const distPath = path.join(__dirname, '../../dist');
+const distPath = path.join(__dirname, '../dist');
 
 app.use(express.json());
 app.use(cors());
@@ -21,7 +21,7 @@ app.use(express.static(distPath));
 /**
  * Health check endpoint
  */
-app.get('/', (req, res) => {
+app.get('/health', (req, res) => {
   console.log('Received request at /');
   res.send('Aurora server is running');
 });
