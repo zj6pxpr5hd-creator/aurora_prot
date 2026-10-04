@@ -60,11 +60,16 @@ RUN mkdir -p /app/server/data
 # Copy built frontend assets from Stage 1
 COPY --from=frontend-builder /app/dist ./dist
 
-# Copy root node_modules intact (preserves .pnpm store and symlinks)
+# Copy root node_modules intact from Stage 2 to avoid reinstalling dependencies
 COPY --from=backend-builder /app/node_modules ./node_modules
+COPY --from=backend-builder /app/server/node_modules ./server/node_modules
 
 # Copy backend source code
 COPY server ./server
+
+
+
+
 
 EXPOSE 5000
 
