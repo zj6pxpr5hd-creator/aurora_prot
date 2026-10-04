@@ -1,7 +1,19 @@
+# QUICK NOTES ON DOCKER FOR MYSELF:
+# A Dockerfile is a text document containing step-by-step instructions that tells 
+# Docker how to build and package an application into a portable, runnable container.
+# FROM: Downloads a mini operating system to use as a starting point.
+# WORKDIR: Creates and opens a working directory (like double-clicking a folder).
+# COPY: Copies files from your computer into the container.
+# RUN: Executes a command line inside the container during assembly.
+# ENV: Sets a configuration variable.
+# EXPOSE: Documents which network port the application uses.
+# CMD: The final command executed when the container turns on.
+
 # ==========================================
 # STAGE 1: Build the React / Vite Frontend
 # ==========================================
-FROM node:20-alpine AS frontend-builder
+# creates a new image based on the official Node.js 20 image with Alpine Linux
+FROM node:20-alpine AS frontend-builder 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
@@ -19,12 +31,14 @@ RUN pnpm build
 # ==========================================
 # STAGE 2: Prepare Backend Dependencies
 # ==========================================
+# This stage is needed to install production dependencies for the backend (Express server) without including devDependencies.
 FROM node:20-alpine AS backend-builder
 # Install Python, Make, and G++ required to compile better-sqlite3 native bindings
 RUN apk add --no-cache python3 make g++
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
+# Copy root lockfiles & package manifests for pnpm workspace caching
 COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
 COPY server/package.json ./server/
 
