@@ -54,16 +54,14 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=5000
 
-# Create the folder where the SQLite database file will live inside the container
+# Create directory for persistent SQLite database
 RUN mkdir -p /app/server/data
 
 # Copy built frontend assets from Stage 1
 COPY --from=frontend-builder /app/dist ./dist
 
-# Copy installed production dependencies safely from Stage 2
-# The wildcards (*) allow Docker to copy node_modules whether pnpm created them in root, server/, or both
-COPY --from=backend-builder /app/node_modules* ./node_modules
-COPY --from=backend-builder /app/server/node_modules* ./server/node_modules
+# Copy root node_modules intact (preserves .pnpm store and symlinks)
+COPY --from=backend-builder /app/node_modules ./node_modules
 
 # Copy backend source code
 COPY server ./server

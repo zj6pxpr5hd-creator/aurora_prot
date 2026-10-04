@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Runs Aurora as a Docker container. This is useful for testing and development purposes, as it allows you to run Aurora in a consistent environment without having to install dependencies on your local machine.
 services:
   aurora:
