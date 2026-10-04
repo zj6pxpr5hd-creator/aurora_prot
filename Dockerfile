@@ -60,8 +60,9 @@ RUN mkdir -p /app/server/data
 # Copy built frontend assets from Stage 1
 COPY --from=frontend-builder /app/dist ./dist
 
-# Copy installed dependencies safely from Stage 2 (handles both root and subfolder installs)
-COPY --from=backend-builder /app/node_modules ./node_modules
+# Copy installed production dependencies safely from Stage 2
+# The wildcards (*) allow Docker to copy node_modules whether pnpm created them in root, server/, or both
+COPY --from=backend-builder /app/node_modules* ./node_modules
 COPY --from=backend-builder /app/server/node_modules* ./server/node_modules
 
 # Copy backend source code
