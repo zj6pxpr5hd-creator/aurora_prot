@@ -60,9 +60,9 @@ RUN mkdir -p /app/server/data
 # Copy built frontend assets from Stage 1
 COPY --from=frontend-builder /app/dist ./dist
 
-# Copy installed production dependencies from Stage 2
+# Copy installed dependencies safely from Stage 2 (handles both root and subfolder installs)
 COPY --from=backend-builder /app/node_modules ./node_modules
-COPY --from=backend-builder /app/server/node_modules ./server/node_modules
+COPY --from=backend-builder /app/server/node_modules* ./server/node_modules
 
 # Copy backend source code
 COPY server ./server
