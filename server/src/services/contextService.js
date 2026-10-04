@@ -67,7 +67,7 @@ export async function createContext() {
     content: mem.content,
     date: mem.date,
     time: mem.time,
-    timeStatus: categorizeMemoryTime(mem, nowInfo)
+    timeStatus: categorizeMemoryTime(mem, nowInfo, nowInfo.tomorrowDate)
   }));
 
   return {
