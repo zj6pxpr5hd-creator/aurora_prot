@@ -113,7 +113,11 @@ export async function getAuroraResponse(messages) {
 
           CURRENT CONTEXT
           ---------------
-          ${JSON.stringify(context, null, 2)}
+          /* Performance Optimization: Use compact JSON serialization (JSON.stringify(context))
+           * instead of formatted JSON (JSON.stringify(context, null, 2)) to eliminate unnecessary whitespace,
+           * reducing token count, HTTP payload size, and serialization latency for Gemini API calls.
+           */
+          ${JSON.stringify(context)}
 
           LATEST MESSAGES (THESE ARE NOT PERSISTENT MEMORIES, THEY ARE JUST RECENT CHAT HISTORY, AND MAY INCLUDE DELETED OR CANCELLED ITEMS THAT SHOULD NOT BE TREATED AS CURRENT FACTS OR COMMITMENTS)
           --------------------
@@ -190,7 +194,7 @@ export async function getMoreRelevant(messages) {
     If nothing in persistentMemories deserves particular attention right now, return an empty array.
 
     Current Context:
-      ${JSON.stringify(context, null, 2)}
+      ${JSON.stringify(context)}
 
     Recent conversation:
       ${conversation}

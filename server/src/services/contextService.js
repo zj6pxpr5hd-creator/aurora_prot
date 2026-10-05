@@ -60,6 +60,10 @@ export async function createContext() {
     };
   }
 
+  // Performance Optimization: Pre-compute nowDateMs timestamp once outside memory mapping loop
+  // to avoid redundant Date object instantiations for every memory item.
+  const nowDateMs = new Date(nowInfo.date + 'T00:00:00Z').getTime();
+
   const persistentMemories = allMemories.map(mem => ({
     id: mem.id,
     type: mem.type,
@@ -67,7 +71,7 @@ export async function createContext() {
     content: mem.content,
     date: mem.date,
     time: mem.time,
-    timeStatus: categorizeMemoryTime(mem, nowInfo)
+    timeStatus: categorizeMemoryTime(mem, nowInfo, nowDateMs)
   }));
 
   return {

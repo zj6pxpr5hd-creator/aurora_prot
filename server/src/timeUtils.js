@@ -56,6 +56,8 @@ export function getCurrentTimeInfo(timeZone = DEFAULT_TZ, d = new Date()) {
 
 /**
  * Categorizes a memory's date/time relative to the current local time.
+ * Performance Optimization: Accepts optional precomputed `nowDateMs` timestamp to prevent
+ * instantiating `new Date(nowInfo.date + 'T00:00:00Z').getTime()` on every memory during array mapping.
  *
  * @param {{
  *   type: string,        // Memory type: 'event', 'task', 'note', or 'goal'
@@ -67,9 +69,10 @@ export function getCurrentTimeInfo(timeZone = DEFAULT_TZ, d = new Date()) {
  *   time: string,        // Format: 'HH:MM:SS'
  *   datetime: string     // Format: 'YYYY-MM-DD HH:MM:SS'
  * }} nowInfo - The current time object returned by getCurrentTimeInfo().
+ * @param {number} [nowDateMs] - Optional precomputed UTC millisecond timestamp for `nowInfo.date + 'T00:00:00Z'`.
  * @returns {'unscheduled'|'overdue_task'|'past_event'|'past_event_today'|'today_upcoming'|'tomorrow'|'future'} The relative time status string.
  */
-export function categorizeMemoryTime(memory, nowInfo) {
+export function categorizeMemoryTime(memory, nowInfo, nowDateMs) {
   if (!memory.date) {
     return 'unscheduled';
   }
@@ -88,9 +91,10 @@ export function categorizeMemoryTime(memory, nowInfo) {
     }
     return 'today_upcoming';
   } else {
-    const d1 = new Date(nowInfo.date + 'T00:00:00Z').getTime();
+    // Performance Optimization: Use precalculated nowDateMs if provided to avoid Date creation overhead
+    const d1 = nowDateMs ?? new Date(nowInfo.date + 'T00:00:00Z').getTime();
     const d2 = new Date(memDate + 'T00:00:00Z').getTime();
-    const diffDays = Math.round((d2 - d1) / (1000 * 3600 * 24));
+    const diffDays = Math.round((d2 - d1) / 86400000);
     if (diffDays === 1) return 'tomorrow';
     return 'future';
   }
