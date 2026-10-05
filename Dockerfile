@@ -14,7 +14,7 @@
 # ==========================================
 # creates a new image based on the official Node.js 20 image with Alpine Linux
 FROM node:22-alpine AS frontend-builder 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@12.9.1 --activate
 WORKDIR /app
 
 # Copy root lockfiles & package manifests for pnpm workspace caching
@@ -35,7 +35,7 @@ RUN pnpm build
 FROM node:22-alpine AS backend-builder
 # Install Python, Make, and G++ required to compile better-sqlite3 native bindings
 RUN apk add --no-cache python3 make g++
-RUN corepack enable
+RUN corepack enable && corepack prepare pnpm@12.9.1 --activate
 WORKDIR /app
 
 # Copy root lockfiles & package manifests for pnpm workspace caching
