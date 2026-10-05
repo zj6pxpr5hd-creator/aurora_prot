@@ -1,6 +1,9 @@
 # Runs Aurora as a Docker container. This is useful for testing and development purposes, as it allows you to run Aurora in a consistent environment without having to install dependencies on your local machine.
 services:
   aurora:
+# point to .env file for environment variables, which is useful for keeping sensitive information like API keys out of the codebase.
+    env_file:
+      - .env
 # builds the Docker image for Aurora using the Dockerfile in the current directory. The image is named "aurora_service" and will be restarted unless stopped manually.
     build:
       context: .
