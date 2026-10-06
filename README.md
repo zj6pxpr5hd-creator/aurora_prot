@@ -68,6 +68,15 @@ Start the backend from the server directory:
 pnpm start
 ```
 
+During development, Vite loads [`.env.development`](./.env.development), which
+points API requests to the backend at `http://localhost:3000`. Do not put this
+file under `src/`; Vite only loads environment files from the project root.
+
+The production Docker image serves the frontend and backend from the same
+Express server, so production builds leave `VITE_API_URL` unset and use
+same-origin API requests. This avoids making `localhost` refer to the browser's
+machine instead of the server running Aurora.
+
 Aurora requires the appropriate environment variables for the Gemini API key. These should be stored in `.env` files and **must not be committed to Git**.
 
 ## Project Structure
