@@ -1005,6 +1005,7 @@ p {
 	cursor: wait;
 }
 
+.composer-error,
 .composer-wrap > p:last-child {
 	margin: 8px 4px 0;
 	color: var(--aurora-accent-dark);

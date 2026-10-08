@@ -105,6 +105,8 @@ export const ConversationSection = memo(function ConversationSection({
             value={value}
             onChange={(e) => onValueChange(e.target.value)}
             disabled={isSaving}
+            aria-invalid={Boolean(error)}
+            aria-describedby={error ? 'composer-error' : undefined}
           />
           <button
             type="submit"
@@ -125,7 +127,11 @@ export const ConversationSection = memo(function ConversationSection({
             )}
           </button>
         </form>
-        {error && <p>{error}</p>}
+        {error && (
+          <p id="composer-error" role="alert" className="composer-error">
+            {error}
+          </p>
+        )}
       </div>
     </>
   );
