@@ -1,6 +1,7 @@
 import type { Memory } from '../types/memory';
 import { updateMemoryApi } from '../services/api';
 import { useState } from 'react';
+import { SpinnerIcon } from './Icons';
 
 interface MemoryEditorProps {
   memory: Memory;
@@ -17,6 +18,8 @@ interface MemoryEditorProps {
  */
 export function MemoryEditor({ memory, onSave, onCancel }: MemoryEditorProps) {
   const [draft, setDraft] = useState(memory);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const updateDraft = (field: keyof Memory, value: string) => {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -24,17 +27,22 @@ export function MemoryEditor({ memory, onSave, onCancel }: MemoryEditorProps) {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    setError('');
+    setIsSaving(true);
     try {
       const infoMessage = await updateMemoryApi(draft);
       console.log(`Memory with id ${draft.id} updated successfully.`);
       onSave(draft, infoMessage);
-    } catch (error) {
-      console.error('Error editing memory:', error);
+    } catch (err) {
+      console.error('Error editing memory:', err);
+      setError('Failed to save memory changes. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLFormElement>) => {
-    if (event.key === 'Escape') {
+    if (event.key === 'Escape' && !isSaving) {
       onCancel();
     }
   };
@@ -46,27 +54,69 @@ export function MemoryEditor({ memory, onSave, onCancel }: MemoryEditorProps) {
       onKeyDown={handleKeyDown}
       aria-label={`Edit memory: ${memory.title}`}
     >
-      <label>
+      {error && (
+        <p className="section-error" role="alert">
+          {error}
+        </p>
+      )}
+      <label htmlFor="edit-memory-title">
         Title
-        <input autoFocus value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} required />
+        <input
+          id="edit-memory-title"
+          autoFocus
+          value={draft.title}
+          onChange={(event) => updateDraft('title', event.target.value)}
+          disabled={isSaving}
+          required
+        />
       </label>
-      <label>
+      <label htmlFor="edit-memory-content">
         Content
-        <textarea value={draft.content} onChange={(event) => updateDraft('content', event.target.value)} required rows={4} />
+        <textarea
+          id="edit-memory-content"
+          value={draft.content}
+          onChange={(event) => updateDraft('content', event.target.value)}
+          disabled={isSaving}
+          required
+          rows={4}
+        />
       </label>
       <div className="memory-editor-fields">
-        <label>
+        <label htmlFor="edit-memory-date">
           Date
-          <input type="date" value={draft.date ?? ''} onChange={(event) => updateDraft('date', event.target.value)} />
+          <input
+            id="edit-memory-date"
+            type="date"
+            value={draft.date ?? ''}
+            onChange={(event) => updateDraft('date', event.target.value)}
+            disabled={isSaving}
+          />
         </label>
-        <label>
+        <label htmlFor="edit-memory-time">
           Time
-          <input type="time" value={draft.time ?? ''} onChange={(event) => updateDraft('time', event.target.value)} />
+          <input
+            id="edit-memory-time"
+            type="time"
+            value={draft.time ?? ''}
+            onChange={(event) => updateDraft('time', event.target.value)}
+            disabled={isSaving}
+          />
         </label>
       </div>
       <div className="memory-editor-actions">
-        <button type="submit">Save changes</button>
-        <button type="button" onClick={onCancel}>Cancel</button>
+        <button type="submit" disabled={isSaving} aria-busy={isSaving}>
+          {isSaving ? (
+            <>
+              <SpinnerIcon />
+              <span>Saving...</span>
+            </>
+          ) : (
+            'Save changes'
+          )}
+        </button>
+        <button type="button" onClick={onCancel} disabled={isSaving}>
+          Cancel
+        </button>
       </div>
     </form>
   );
