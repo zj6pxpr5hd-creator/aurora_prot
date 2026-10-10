@@ -37,4 +37,12 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_memories_created_at ON memories(created_at);
 `);
 
+const count = db.prepare("SELECT COUNT(*) as count FROM memories").get().count;
+if (count === 0) {
+  db.prepare(`
+    INSERT INTO memories (type, title, content, date, time)
+    VALUES (?, ?, ?, ?, ?)
+  `).run('personal', 'Favourite morning ritual', 'A quiet coffee and ten minutes of reading helps start the day well.', '2026-09-18', '08:00');
+}
+
 export default db;
