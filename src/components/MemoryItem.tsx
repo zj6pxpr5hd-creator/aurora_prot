@@ -1,6 +1,6 @@
 import type { Memory } from '../types/memory';
 import { deleteMemoryApi } from '../services/api';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { SpinnerIcon } from './Icons';
 
 interface MemoryItemProps {
@@ -20,6 +20,7 @@ export function MemoryItem({ memory, onEdit, onDelete }: MemoryItemProps) {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -36,10 +37,15 @@ export function MemoryItem({ memory, onEdit, onDelete }: MemoryItemProps) {
     }
   };
 
+  const handleCancelDelete = () => {
+    setIsConfirmingDelete(false);
+    setDeleteError('');
+    deleteButtonRef.current?.focus();
+  };
+
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape' && !isDeleting) {
-      setIsConfirmingDelete(false);
-      setDeleteError('');
+      handleCancelDelete();
     }
   };
 
@@ -60,6 +66,7 @@ export function MemoryItem({ memory, onEdit, onDelete }: MemoryItemProps) {
             Edit
           </button>
           <button
+            ref={deleteButtonRef}
             type="button"
             className="memory-delete-button"
             aria-label={`Delete memory: ${memory.title}`}
@@ -101,12 +108,10 @@ export function MemoryItem({ memory, onEdit, onDelete }: MemoryItemProps) {
           </button>
           <button
             type="button"
+            autoFocus
             aria-label={`Cancel deletion of ${memory.title}`}
             disabled={isDeleting}
-            onClick={() => {
-              setIsConfirmingDelete(false);
-              setDeleteError('');
-            }}
+            onClick={handleCancelDelete}
           >
             Cancel
           </button>
