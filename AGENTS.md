@@ -1,125 +1,79 @@
-# AGENTS.md
+1. Project Purpose & Mission:
+- The system is an intelligent personal assistant and contextual memory application named "Aurora". 
+- Its overarching goal is to help users manage, organize, and interact with daily breakdowns, upcoming events, long-term goals, and conversational memory streams backed by automated AI processing.
 
-## 1. Project Purpose & Mission
-Aurora (codenamed Aurora Protocol) is an intelligent, context-aware memory and daily planning web application. Its primary mission is to act as an empathetic, reflective assistant that helps users track personal memories, organize daily schedules, monitor goal progression, and surface contextual insights using advanced AI services (Google Gemini). The system bridges local reactive UI state with backend intelligence to provide real-time updates, conversational memory management, and structured daily breakdowns.
+2. General Architecture & Tech Stack:
+- Infrastructure layout: A client-server architecture containerized via Docker (`Dockerfile`, `docker-compose.yml`), combining a frontend application with a backend API service.
+- Core frameworks and languages:
+  - Frontend: React (with TypeScript, Vite, CSS).
+  - Backend: Node.js (Express framework), interacting with local SQLite databases.
+- Environmental requirements: Node.js runtime, local LLM integration services (Google Gemini via backend services), and modern browser support.
 
----
+3. Data Flow:
+- Initial User Trigger: The user interacts with the React frontend interface (e.g., inputting text or submitting a chat message/memory).
+- Webhook/API Parsing: The frontend dispatches API requests through `src/services/api.ts` targeting specific backend routes (`server/src/routes/`).
+- LLM/Agent Processing: The backend services (`server/src/services/`) parse incoming context and route payloads through the Gemini service (`geminiService.js`) and database handlers (`database.js`).
+- Output Interface: Processed data (such as conversational replies, relevant memories, goals, or daily breakdowns) is returned via JSON responses, updating the React state models and rendering dynamically back to the user shell.
 
-## 2. General Architecture & Tech Stack
-- **High-Level Infrastructure:** Client-server web application architecture structured around a Vite-powered single-page frontend and a Node.js Express backend API, containerized via Docker.
-- **Frontend Framework:** React 18+ with TypeScript, utilizing functional components, hooks (`useState`, `useEffect`, `useRef`, `useMemo`, `useCallback`), and custom CSS styling.
-- **Backend Framework:** Node.js with Express (`server/app.js`), modularized routing, and local data persistence via custom database abstraction layers (`server/src/db/database.js`).
-- **AI / LLM Integration:** Google Gemini SDK (`server/src/services/geminiService.js`) integrated within backend services to drive context analysis and memory surfacing.
-- **Environmental Requirements:** 
-  - Node.js (v18+ recommended)
-  - Package Managers: `npm`, `pnpm` (Workspace support via `pnpm-workspace.yaml`), or `yarn`
-  - Required Environment Variables: `PORT`, `GEMINI_API_KEY` (configured in backend runtime)
+4. External APIs & Integrations:
+- Google Gemini API: Integrated via backend services (`server/src/services/geminiService.js`) for natural language processing, semantic matching, and assistant generation.
+- Authentication Methods: Secure API keys and environment secrets managed through backend configuration (`.env`, `server/AURORA_PROT.code-workspace`).
 
----
+5. Agent Overview & Operating Guidelines:
+- Defined Roles: Autonomous agents operating within this repository act as developer assistants, refactoring aids, bug fixers, and documentation maintainers.
+- Rules of Engagement:
+  - Branching: Strict adherence to modifying files only on designated development branches. Direct commits to production/main branches are forbidden.
+  - Commits: Use clear, descriptive commit messages adhering to standard conventional commit formats (e.g., `feat:`, `fix:`, `refactor:`).
+  - File Writing: Maintain existing code style (TypeScript strict rules, ESLint configurations). Verify that modifications do not break existing component memoization, hooks, or backend middleware logic.
 
-## 3. Data Flow
-1. **User Trigger:** The user interacts with the UI (e.g., typing a prompt in `ConversationSection`, triggering memory modifications, or requesting daily breakdowns).
-2. **API Request & Routing:** 
-   - Frontend API client (`src/services/api.ts`) dispatches asynchronous HTTP requests (`fetch`) to backend REST endpoints (e.g., `/api/context`, `/api/goals`, `/api/memory`, `/api/relevant`).
-   - Express router maps incoming requests to appropriate route controllers (`server/src/routes/*`).
-3. **Business Logic & AI Processing:**
-   - Services (`server/src/services/*`) process application context, interact with the local database (`server/src/db/database.js`), or format payloads for external LLM inference.
-   - `geminiService.js` structures prompts and queries the Google Gemini API to generate intelligent summaries, daily layouts, and relevant memory extractions.
-4. **Response & State Hydration:** 
-   - The backend returns JSON responses back to the frontend service layer.
-   - React components update their local state or fallback to `localStorage` caching (e.g., chat messages), triggering efficient re-renders and auto-scrolling behaviors.
+6. Security & Guardrails:
+- Command Whitelisting: Autonomous agents are restricted to executing safe development tasks (e.g., `npm test`, `npm run build`, linting checks).
+- Explicit Restrictions: Direct shell execution of destructive commands (e.g., `rm -rf`, uncontrolled database drops, modifications to production environment files) is strictly prohibited.
+- Environment Hardening: Secrets and API keys must never be hardcoded into source files; they must strictly utilize environment variables.
 
----
-
-## 4. External APIs & Integrations
-- **Google Gemini API:**
-  - **Purpose:** Generative AI responses, context matching, memory relevance scoring, and content structuring.
-  - **Authentication:** Requires a valid API key passed via environment configuration (`GEMINI_API_KEY`).
-- **Internal REST Endpoints:**
-  - `/api/context` - Manages contextual snapshots.
-  - `/api/goals` - Fetches and updates user goal metrics.
-  - `/api/memory` - CRUD operations for user memories and chat interactions.
-  - `/api/relevant` - Queries and surfaces memories relevant to active conversations.
-
----
-
-## 5. Agent Overview & Operating Guidelines
-- **Available Agent Roles:**
-  - **Frontend Refactoring & Feature Agent:** Responsible for `src/` components, TypeScript definitions (`src/types/`), and React performance tuning (`useCallback`, `useMemo`).
-  - **Backend API & Service Agent:** Responsible for `server/` endpoints, database interactions, error-handling middleware, and LLM integrations.
-- **Rules of Engagement:**
-  - **Branch Protection:** Autonomous agents MUST perform all file modifications, refactoring, and feature implementations exclusively on designated development branches (`dev` or feature branches). Direct pushes to `main`/`master` are strictly prohibited.
-  - **Commit Message Standards:** Follow conventional commit formatting (e.g., `feat(ui): add memory filter`, `fix(server): handle gemini timeout gracefully`).
-  - **File-Writing Protocols:** Always verify dependencies and schema validations (`server/src/schemas/memorySchemas.js`) before modifying data models. Maintain clean separation between client UI logic and server-side orchestration.
-
----
-
-## 6. Security & Guardrails
-- **Command Whitelisting:** Agents are permitted to execute safe development and build commands (e.g., `npm run build`, `pnpm install`, linter checks via `eslint.config.js`). 
-- **Shell Execution Restrictions:** Direct system-level modifications, execution of arbitrary shell commands outside project scopes, or modifications to host system configurations are strictly blocked.
-- **Environment Hardening:** 
-  - Never hardcode API keys, secrets, or database credentials in source code. Always reference environment variables via `process.env`.
-  - Validate and sanitize all incoming payloads on the backend service layer before passing them to external LLMs or local data stores.
-
----
-
-## 7. File Map
-```text
-.
-├── .gitignore
-├── AGENTS.md
-├── Dockerfile
-├── README.md
-├── eslint.config.js
-├── index.html
-├── package-lock.json
-├── package.json
-├── pnpm-lock.yaml
-├── pnpm-workspace.yaml
-├── public
-│   ├── favicon.svg
-│   └── icons.svg
-├── server
-│   ├── AURORA_PROT.code-workspace
-│   ├── app.js
-│   ├── package-lock.json
-│   ├── package.json
-│   ├── pnpm-lock.yaml
-│   └── src
-│       ├── context.js
-│       ├── db
-│       │   └── database.js
-│       ├── routes
-│       │   ├── contextRoutes.js
-│       │   ├── goalsRoutes.js
-│       │   ├── memoryRoutes.js
-│       │   └── relevantRoutes.js
-│       ├── schemas
-│       │   └── memorySchemas.js
-│       ├── services
-│       │   ├── contextService.js
-│       │   └── geminiService.js
-│       └── timeUtils.js
-├── src
-│   ├── App.css
-│   ├── App.tsx
-│   ├── EventList.tsx
-│   ├── components
-│   │   ├── ConversationSection.tsx
-│   │   ├── DailyBreakdownSection.tsx
-│   │   ├── Header.tsx
-│   │   ├── Icons.tsx
-│   │   ├── MemoryEditor.tsx
-│   │   ├── MemoryItem.tsx
-│   │   └── RightColumnSections.tsx
-│   ├── index.css
-│   ├── main.tsx
-│   ├── services
-│   │   └── api.ts
-│   └── types
-│       └── memory.ts
-├── tsconfig.app.json
-├── tsconfig.json
-├── tsconfig.node.json
-└── vite.config.ts
-```
+7. File Map:
+- .gitignore
+- AGENTS.md
+- Dockerfile
+- README.md
+- eslint.config.js
+- index.html
+- package-lock.json
+- package.json
+- pnpm-lock.yaml
+- pnpm-workspace.yaml
+- public/favicon.svg
+- public/icons.svg
+- server/AURORA_PROT.code-workspace
+- server/app.js
+- server/package-lock.json
+- server/package.json
+- server/pnpm-lock.yaml
+- server/src/context.js
+- server/src/db/database.js
+- server/src/routes/contextRoutes.js
+- server/src/routes/goalsRoutes.js
+- server/src/routes/memoryRoutes.js
+- server/src/routes/relevantRoutes.js
+- server/src/schemas/memorySchemas.js
+- server/src/services/contextService.js
+- server/src/services/geminiService.js
+- server/src/timeUtils.js
+- src/App.css
+- src/App.tsx
+- src/EventList.tsx
+- src/components/ConversationSection.tsx
+- src/components/DailyBreakdownSection.tsx
+- src/components/Header.tsx
+- src/components/Icons.tsx
+- src/components/MemoryEditor.tsx
+- src/components/MemoryItem.tsx
+- src/components/RightColumnSections.tsx
+- src/index.css
+- src/main.tsx
+- src/services/api.ts
+- src/types/memory.ts
+- tsconfig.app.json
+- tsconfig.json
+- tsconfig.node.json
+- vite.config.ts
