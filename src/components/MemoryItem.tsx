@@ -101,6 +101,7 @@ export function MemoryItem({ memory, onEdit, onDelete }: MemoryItemProps) {
           </button>
           <button
             type="button"
+            autoFocus
             aria-label={`Cancel deletion of ${memory.title}`}
             disabled={isDeleting}
             onClick={() => {
